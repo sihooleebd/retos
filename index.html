@@ -7,7 +7,7 @@
   View it over http:
     cd to this folder (or any parent)
     python3 -m http.server
-    open http://localhost:8000/retos/06-retos.html
+    open http://localhost:8000/retos/index.html
 -->
 <html lang="en">
 <head>
@@ -2080,7 +2080,7 @@ button.ps-menubar__item {
 
   if (window.location.protocol === "file:") {
     logLine("RetOS cannot boot from file:// because the page imports ES modules.");
-    logLine("Run a local server in the project root, then open http://localhost:8000/retos/06-retos.html.");
+    logLine("Run a local server in the project root, then open http://localhost:8000/retos/index.html.");
     bootStatus.textContent = "HTTP server required";
     bootFill.style.width = "100%";
     return;

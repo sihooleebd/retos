@@ -3726,7 +3726,8 @@ function renderBrowserRoute(route) {
   if (!tab) { return; }
   tab.label = labelFromRoute(route);
   renderBrowserTabs();
-  browserAddress.value = route;
+  // never rewrite the address while the operator is typing in it
+  if (document.activeElement !== browserAddress) { browserAddress.value = route; }
   browserRouteReadout.textContent = route;
   const hostile = isExternalRoute(route) && frameHostile(route);
   browserStatus.textContent = route.startsWith("retos://") ? "Loaded internal route." :
@@ -3773,6 +3774,9 @@ function browserGo(raw, push = true) {
 
 function refreshBrowserInternal() {
   if (!browserReady) { return; }
+  // live ticks (pomodoro, autosave, deck events) rebuild this page's HTML;
+  // hold off while the operator is typing in one of its fields
+  if (browserRouteView.contains(document.activeElement)) { return; }
   const route = currentBrowserRoute();
   if (route && route.startsWith("retos://")) {
     renderBrowserRoute(route);
@@ -3847,7 +3851,10 @@ function openManualFile(file) {
   showToast(file.name + " loaded into the viewer.", "doc");
 }
 
-document.getElementById("browserGo").addEventListener("click", () => browserGo(browserAddress.value, true));
+document.getElementById("browserGo").addEventListener("click", () => {
+  browserAddress.blur();   // committed: let the bar show the normalised route
+  browserGo(browserAddress.value, true);
+});
 document.getElementById("browserHome").addEventListener("click", () => browserGo(DEFAULT_BROWSER_ROUTE, true));
 document.getElementById("browserNewTab").addEventListener("click", () => createBrowserTab(DEFAULT_BROWSER_ROUTE));
 document.getElementById("browserBack").addEventListener("click", () => {
@@ -3863,7 +3870,10 @@ document.getElementById("browserForward").addEventListener("click", () => {
   renderBrowserRoute(tab.history[tab.index]);
 });
 browserAddress.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") { browserGo(browserAddress.value, true); }
+  if (e.key === "Enter") {
+    browserAddress.blur();   // committed: let the bar show the normalised route
+    browserGo(browserAddress.value, true);
+  }
 });
 browserOpenFile.addEventListener("click", () => browserFiles.click());
 browserFiles.addEventListener("change", () => {
