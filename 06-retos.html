@@ -1,0 +1,2095 @@
+<!DOCTYPE html>
+<!--
+  RETOS UI, EXAMPLE 06: RETOS WORKSTATION
+  A whole desktop built from the library: browser, settings, notes,
+  pomodoro, todo, calculator, PDF viewer, and a tactile disk-based MP3 player.
+
+  View it over http:
+    cd to this folder (or any parent)
+    python3 -m http.server
+    open http://localhost:8000/retos/06-retos.html
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RetOS Workstation</title>
+<link rel="icon" href="./favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Pixelify+Sans:wght@400..700&family=DotGothic16&family=VT323&display=swap">
+<link rel="stylesheet" href="./poolside.css">
+<!-- KaTeX, vendored locally for the Notes TeX mode -->
+<link rel="stylesheet" href="./vendor/katex/katex.min.css">
+<script defer src="./vendor/katex/katex.min.js"></script>
+<script defer src="./vendor/katex/auto-render.min.js"></script>
+<style>
+html, body { height: 100%; margin: 0; }
+body { overflow: hidden; }
+
+.ro-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: visible;
+  background: linear-gradient(180deg, #dce8ef 0%, #c2d6df 34%, #6e91a4 100%);
+}
+.ro-shell[data-tint="sunrise"] {
+  background: linear-gradient(180deg, #f1dcc9 0%, #e1c3a4 34%, #8d6854 100%);
+}
+.ro-shell[data-tint="mono"] {
+  background: linear-gradient(180deg, #d9d9d2 0%, #b7b7b0 34%, #70706b 100%);
+}
+.ro-shell[data-tint="phosphor"] {
+  background: linear-gradient(180deg, #163023 0%, #0d2218 34%, #04100a 100%);
+}
+.ro-shell[data-tint="amber"] {
+  background: linear-gradient(180deg, #3f290b 0%, #281906 34%, #120b03 100%);
+}
+/* a custom wallpaper wins over every tint; must sit after the tint rules */
+.ro-shell[data-custom-wall="true"] {
+  background: var(--ro-wallpaper) center / cover no-repeat #1a1a1a;
+}
+.ro-shell::before {
+  content: "";
+  position: absolute;
+  inset: 34px 24px 102px;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 14% 12%, rgba(255, 255, 255, 0.52), transparent 18%),
+    radial-gradient(circle at 84% 14%, rgba(252, 237, 179, 0.36), transparent 16%),
+    linear-gradient(160deg, rgba(255, 255, 255, 0.08), rgba(0, 0, 0, 0.07));
+}
+.ro-shell[data-tint="phosphor"]::before,
+.ro-shell[data-tint="amber"]::before {
+  background:
+    radial-gradient(circle at 14% 12%, rgba(255, 255, 255, 0.1), transparent 18%),
+    radial-gradient(circle at 84% 14%, rgba(255, 226, 133, 0.12), transparent 16%),
+    linear-gradient(160deg, rgba(255, 255, 255, 0.03), rgba(0, 0, 0, 0.12));
+}
+
+.ro-boot {
+  position: fixed;
+  inset: 0;
+  z-index: 300000;   /* above the chrome layers (menubar 100000, dock 100100, toasts 100200) */
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at top, rgba(255, 231, 160, 0.15), transparent 32%),
+    linear-gradient(180deg, #0f1a22 0%, #091017 100%);
+  color: #eef5ff;
+  transition: opacity 320ms ease, visibility 320ms ease;
+}
+.ro-boot[hidden] {
+  opacity: 0;
+  visibility: hidden;
+  display: grid;
+  pointer-events: none;
+}
+.ro-boot__panel {
+  width: min(720px, 100%);
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  background: rgba(8, 16, 22, 0.94);
+  box-shadow: 10px 10px 0 rgba(0, 0, 0, 0.26);
+}
+.ro-boot__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-family: var(--ps-font-bar);
+  font-size: var(--ps-px-2);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.ro-boot__title {
+  font-family: var(--ps-font-display);
+  font-size: 32px;
+  line-height: 1;
+}
+.ro-boot__subtitle {
+  color: rgba(238, 245, 255, 0.72);
+  font-family: var(--ps-font-mono);
+  font-size: var(--ps-px-3);
+}
+.ro-boot__bar {
+  height: 18px;
+  padding: 1px;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.06);
+}
+.ro-boot__fill {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: repeating-linear-gradient(
+    -45deg,
+    #d5f1ff 0 10px,
+    #90c7df 10px 20px
+  );
+}
+.ro-boot__log {
+  min-height: 180px;
+  max-height: 240px;
+  overflow: auto;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.04);
+  font-family: var(--ps-font-mono);
+  font-size: var(--ps-px-3);
+  line-height: 1.5;
+}
+.ro-boot__log div {
+  display: flex;
+  gap: 10px;
+}
+.ro-boot__stamp {
+  color: rgba(238, 245, 255, 0.58);
+}
+.ro-boot__actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.ro-canvas {
+  position: relative;
+  flex: 1 1 auto;
+  padding: 14px 18px 112px;
+  overflow: visible;
+}
+.ro-canvas::before,
+.ro-canvas::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.ro-shell[data-wall="grid"] .ro-canvas::before {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.12) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.12) 1px, transparent 1px);
+  background-size: 28px 28px;
+  opacity: 0.3;
+}
+.ro-shell[data-wall="dots"] .ro-canvas::before {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.3) 1px, transparent 1.2px);
+  background-size: 18px 18px;
+  opacity: 0.28;
+}
+.ro-shell[data-wall="wave"] .ro-canvas::before {
+  background-image:
+    radial-gradient(circle at 0 100%, rgba(255, 255, 255, 0.2), transparent 22%),
+    radial-gradient(circle at 100% 0, rgba(255, 255, 255, 0.18), transparent 24%);
+  opacity: 0.42;
+}
+.ro-shell[data-scanlines="on"] .ro-canvas::after {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.055) 0 1px,
+    transparent 1px 5px
+  );
+  mix-blend-mode: multiply;
+  opacity: 0.4;
+}
+.ro-shell[data-shadows="off"] .ps-window {
+  box-shadow: none;
+}
+
+.ro-shell .ps-window--floating {
+  display: flex;
+  flex-direction: column;
+  max-width: min(92vw, 1080px);
+  isolation: isolate;
+}
+/* display:flex above would defeat the hidden attribute the window manager
+   toggles; without this rule no window ever visually closes */
+.ro-shell .ps-window[hidden] {
+  display: none;
+}
+/* corner grip for the resizable windows (navigator, manual, notes) */
+.ro-resize {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: var(--ps-hair);
+  border-radius: var(--ps-radius);
+  background:
+    repeating-linear-gradient(135deg, var(--ps-gray-300) 0 1px, transparent 1px 4px),
+    var(--ps-paper);
+  cursor: nwse-resize;
+  touch-action: none;
+  z-index: 5;
+}
+.ro-resize:active { box-shadow: var(--ps-inset); }
+.ps-window[data-max="true"] .ro-resize { display: none; }
+/* two header families: every fixed-size appliance wears the library's utility
+   racing stripes (calc/todo/pomodoro always did; deck and settings join them),
+   and the resizable readers hatch like their corner grip. A titlebar with a
+   zoom button IS a reader — no id list to maintain. */
+.ro-shell .ps-window__titlebar:has([data-zoom]) {
+  background-image: repeating-linear-gradient(135deg, var(--ps-gray-300) 0 1px, transparent 1px 4px);
+}
+.ro-shell .ps-window__titlebar:has([data-zoom]) .ps-window__title {
+  background: var(--ps-paper);
+  padding-inline: 6px;
+}
+.ro-shell .ps-window__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+.ro-shell .ps-window[data-max="true"] {
+  max-width: none;
+}
+
+.ro-icons {
+  position: absolute;
+  left: 12px;
+  top: 18px;
+  z-index: 24;
+}
+/* Chrome layers sit well above the live window stack. The focus code now
+   spends a z level on every interaction and only compacts far later. */
+.ro-shell > .ps-menubar {
+  position: relative;
+  z-index: 100000;
+}
+/* menubar readouts are real buttons; strip the UA chrome and let the
+   library's data-interactive hover state do the talking */
+button.ps-menubar__item {
+  font: inherit;
+  background: none;
+  color: inherit;
+}
+.ps-menubar__item[hidden] {
+  display: none;
+}
+.ps-menubar__item .ps-icon--12 {
+  flex: 0 0 auto;
+}
+.ro-toasts {
+  position: fixed;
+  right: 16px;
+  bottom: 92px;
+  display: grid;
+  gap: 8px;
+  z-index: 100200;
+}
+.ro-dockwrap {
+  position: fixed;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  z-index: 100100;
+}
+.ro-dock .ps-dock__item {
+  min-width: 92px;
+}
+.ro-clock {
+  font-variant-numeric: tabular-nums;
+}
+.ro-date {
+  font-variant-numeric: tabular-nums;
+}
+.ps-dock__item[data-opened="true"] {
+  box-shadow: inset 0 2px 0 var(--ps-accent);
+}
+.ps-deskicon[data-opened="true"] .ps-deskicon__glyph {
+  background: var(--ps-face);
+}
+
+.ro-browser { z-index: 160; }
+.ro-player {
+  z-index: 156;
+  min-width: 400px;
+  min-height: 500px;
+}
+/* long titles ellipsize instead of stretching the deck; must outrank the
+   generic .ro-shell .ps-window--floating max-width */
+.ro-shell .ro-player {
+  max-width: 480px;
+}
+.ro-deck > * {
+  min-width: 0;
+}
+.ro-track .ps-listbox__opt {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+  text-align: left;
+}
+.ro-settings {
+  z-index: 152;
+  min-width: 612px;
+  min-height: 560px;
+}
+.ro-manual { z-index: 151; }
+.ro-notes {
+  z-index: 150;
+  min-width: 416px;
+  min-height: 392px;
+}
+.ro-pomodoro {
+  z-index: 149;
+  min-width: 246px;
+  min-height: 364px;
+}
+.ro-todo {
+  z-index: 148;
+  min-width: 320px;
+  min-height: 420px;
+}
+.ro-calc {
+  z-index: 147;
+  min-width: 218px;
+  min-height: 406px;
+}
+
+.ro-browser__body,
+.ro-manual__body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  min-height: 0;
+}
+.ro-player__body,
+.ro-notes__body,
+.ro-pomodoro__body,
+.ro-todo__body,
+.ro-calc__body {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  min-height: 0;
+}
+.ro-player__body {
+  align-content: start;
+}
+.ro-settings__body {
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+}
+.ro-browser__body,
+.ro-player__body,
+.ro-settings__body,
+.ro-manual__body,
+.ro-notes__body,
+.ro-pomodoro__body,
+.ro-todo__body,
+.ro-calc__body {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.ro-browser__tabsbar {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+.ro-browser__tabs {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  min-width: 0;
+  overflow: auto;
+}
+.ro-browsertab {
+  display: flex;
+  align-items: stretch;
+  border: var(--ps-hair);
+  border-radius: var(--ps-radius);
+  background: var(--ps-face-hi);
+  box-shadow: var(--ps-shadow-sm);
+  flex: 0 0 auto;
+}
+.ro-browsertab[data-active="true"] {
+  background: var(--ps-paper);
+}
+.ro-browsertab__main,
+.ro-browsertab__close {
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.ro-browsertab__main {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 7px 12px;
+}
+.ro-browsertab__main:active,
+.ro-browsertab__close:active {
+  box-shadow: var(--ps-inset);
+  background: var(--ps-face);
+}
+.ro-browsertab__label {
+  max-width: 13ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ro-browsertab__close {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  border-left: var(--ps-hair);
+}
+.ro-browser__bookmarks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.ro-bookmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: var(--ps-hair);
+  border-radius: var(--ps-radius);
+  background: var(--ps-paper);
+  box-shadow: var(--ps-shadow-sm);
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.ro-bookmark:hover,
+.ro-bookmark:focus-visible {
+  background: var(--ps-face-hi);
+  outline: none;
+}
+.ro-bookmark:active {
+  box-shadow: var(--ps-inset);
+  transform: translate(1px, 1px);
+}
+.ro-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+/* the notes hint must never widen the frame: it shrinks and ellipsizes */
+#notesHint {
+  flex: 1 1 0;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ro-toolbar__grow {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.ro-toolbar__grow .ps-input {
+  width: 100%;
+  box-sizing: border-box;
+}
+.ro-browser__frame {
+  flex: 1 1 auto;
+  min-height: 200px;   /* yields when the window is short instead of spilling out */
+  border: var(--ps-hair);
+  background: var(--ps-paper);
+  position: relative;
+}
+.ro-browser__routeview,
+.ro-browser__frame iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+  background: var(--ps-paper);
+}
+.ro-browser__frame iframe {
+  position: absolute;
+  inset: 0;
+}
+.ro-browser__routeview {
+  overflow: auto;
+  min-width: 0;
+  min-height: 0;
+}
+/* the display:block above would otherwise defeat the hidden attribute and
+   leave a full-height ghost pane in flow, blocking clicks under the window */
+.ro-browser__routeview[hidden] {
+  display: none;
+}
+/* parked tab frames hide via visibility, not display — a PDF in a
+   display:none frame loses its place; this keeps it live and sized */
+.ro-browser__frame iframe[data-live="false"] {
+  visibility: hidden;
+}
+.ro-browser__status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 10px;
+  border: var(--ps-hair);
+  background: var(--ps-paper);
+  font-family: var(--ps-font-mono);
+  font-size: var(--ps-px-2);
+}
+.ro-browser__route {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ps-gray-400);
+}
+
+.ro-settings__layout {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr);
+  min-height: 420px;
+  min-width: 0;
+  border: var(--ps-hair);
+  background: var(--ps-paper);
+  box-shadow: var(--ps-inset);
+}
+.ro-settings__rail {
+  border-right: var(--ps-hair);
+  background: var(--ps-face-hi);
+}
+.ro-settings__panes {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}
+.ro-settings__panel {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  padding: 14px;
+  min-width: 0;
+}
+.ro-settings__panel[hidden] {
+  display: none;
+}
+.ro-settings__lead {
+  margin: 0;
+  color: var(--ps-gray-400);
+}
+.ro-settings__stack {
+  display: grid;
+  gap: 12px;
+}
+.ro-settings__themes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.ro-themechip {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: var(--ps-hair);
+  border-radius: var(--ps-radius);
+  background: var(--ps-paper);
+  box-shadow: var(--ps-shadow-sm);
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.ro-themechip:hover,
+.ro-themechip:focus-visible {
+  background: var(--ps-face-hi);
+  outline: none;
+}
+.ro-themechip:active {
+  box-shadow: var(--ps-inset);
+  transform: translate(1px, 1px);
+}
+.ro-themechip[aria-pressed="true"] {
+  background: var(--ps-face);
+  box-shadow: inset 0 0 0 1px var(--ps-ink);
+}
+.ro-themechip__swatches {
+  display: flex;
+  gap: 4px;
+}
+.ro-themechip__swatches i {
+  flex: 1 1 auto;
+  height: 18px;
+  border: var(--ps-hair);
+  border-radius: 1px;
+}
+.ro-themechip__label {
+  font-family: var(--ps-font-bar);
+  font-size: var(--ps-px-2);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.ro-settings__switchrow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.ro-settings__switchrow .ps-switch,
+.ro-settings__switchrow .ro-voltext {
+  flex: 0 0 auto;
+}
+.ro-settings__switchrow .ps-help {
+  flex: 1 1 180px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.ro-settings__switchrow .ps-slider {
+  flex: 1 1 180px;
+  width: 100%;
+  min-width: 0;
+}
+.ro-previewcard {
+  padding: 12px;
+  border: var(--ps-hair);
+  background: var(--ps-panel);
+  color: var(--ps-panel-ink);
+  box-shadow: var(--ps-shadow-sm);
+}
+.ro-previewcard__title {
+  font-family: var(--ps-font-bar);
+  font-size: var(--ps-px-2);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.ro-previewcard__value {
+  margin-top: 6px;
+  font-family: var(--ps-font-display);
+  font-size: 24px;
+}
+.ro-startup {
+  display: grid;
+  gap: 10px;
+}
+.ro-startup__list {
+  display: grid;
+  gap: 8px;
+}
+.ro-startup__item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border: var(--ps-hair);
+  background: var(--ps-paper);
+}
+.ro-startup__item > div {
+  min-width: 0;
+}
+.ro-startup__meta {
+  color: var(--ps-gray-400);
+  font-size: var(--ps-px-2);
+}
+
+.ro-manual__frame {
+  flex: 1 1 auto;
+  min-height: 200px;
+  border: var(--ps-hair);
+  background: var(--ps-paper);
+}
+.ro-manual__frame iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}
+.ro-manual__frame iframe[hidden] { display: none; }
+.ro-manual__empty {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  text-align: center;
+  color: var(--ps-gray-400);
+  font-family: var(--ps-font-mono);
+  line-height: 1.7;
+}
+.ro-manual__empty[hidden] { display: none; }
+.ro-manual__drop {
+  padding: 10px 12px;
+  border: var(--ps-hair);
+  background: var(--ps-face-hi);
+  font-size: var(--ps-px-2);
+  text-align: center;
+}
+.ro-manual__drop[data-drop="true"] {
+  background: var(--ps-accent-lo);
+}
+.ro-manual__status {
+  font-family: var(--ps-font-mono);
+}
+[data-ps-theme="night"] .ro-shell,
+[data-ps-theme="dark"] .ro-shell,
+[data-ps-theme="phosphor"] .ro-shell,
+[data-ps-theme="amber"] .ro-shell {
+  color: var(--ps-ink);
+}
+[data-ps-theme="night"] .ro-shell .ps-meta,
+[data-ps-theme="night"] .ro-shell .ps-help,
+[data-ps-theme="dark"] .ro-shell .ps-meta,
+[data-ps-theme="dark"] .ro-shell .ps-help,
+[data-ps-theme="phosphor"] .ro-shell .ps-meta,
+[data-ps-theme="phosphor"] .ro-shell .ps-help,
+[data-ps-theme="amber"] .ro-shell .ps-meta,
+[data-ps-theme="amber"] .ro-shell .ps-help {
+  color: var(--ps-gray-400);
+}
+
+.ro-notes__meta {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+}
+.ro-notes__body {
+  grid-template-rows: auto auto auto;
+  align-content: start;
+}
+.ro-notes__title {
+  min-width: 0;
+}
+.ro-notes__meta .ps-meta {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ro-notes__body {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  /* explicit min-0 column: otherwise the implicit auto column adopts the
+     widest row's min-content and every row breaks out of a narrow frame */
+  grid-template-columns: minmax(0, 1fr);
+}
+.ro-notes__layout {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: 10px;
+  min-width: 0;
+  min-height: 0;
+}
+.ro-notes__rail {
+  height: auto;
+  max-height: none;
+  min-height: 220px;
+  overflow: auto;
+}
+/* folder rows: framed like list options but bolder, with a twist arrow;
+   rows light up while a dragged note hovers over them */
+.ro-notes__folderbtn {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 8px;
+  border: 0;
+  background: none;
+  color: var(--ps-ink);
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.ro-notes__folderbtn:hover { background: var(--ps-gray-100); }
+.ro-notes__twist {
+  width: 11px;
+  flex: 0 0 auto;
+  color: var(--ps-gray-400);
+}
+.ro-notes__foldername {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ro-notes__folderedit {
+  min-width: 0;
+  width: 100%;
+  padding: 1px 4px;
+  font: inherit;
+}
+.ro-notes__folderrow[data-drop="true"],
+.ro-notes__rail[data-drop="true"] {
+  background: var(--ps-gray-100);
+  box-shadow: inset 0 0 0 2px var(--ps-accent);
+}
+.ro-notes__main {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 8px;
+  min-width: 0;
+  min-height: 0;
+}
+.ro-notes__editors {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  min-width: 0;
+  min-height: 0;
+}
+.ro-notes[data-preview="true"] .ro-notes__editors {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+.ro-notes[data-preview="true"] {
+  min-width: 780px;
+}
+.ro-notes__pad {
+  min-height: 220px;
+  height: 100%;
+  resize: none;
+  box-sizing: border-box;
+}
+.ro-notes__preview {
+  height: 100%;
+  min-height: 220px;
+  overflow: auto;
+  padding: 10px 12px;
+  border: var(--ps-hair);
+  border-radius: var(--ps-radius);
+  background: var(--ps-paper);
+  box-shadow: var(--ps-inset);
+  box-sizing: border-box;
+  font-size: var(--ps-px-3);
+  line-height: 1.55;
+}
+.ro-notes__preview[hidden] { display: none; }
+.ro-notes__preview h1,
+.ro-notes__preview h2,
+.ro-notes__preview h3 {
+  margin: 0 0 8px;
+  font-family: var(--ps-font-display);
+  font-weight: 400;
+}
+.ro-notes__preview h1 { font-size: 24px; }
+.ro-notes__preview h2 { font-size: 20px; }
+.ro-notes__preview h3 { font-size: 17px; }
+.ro-notes__preview p { margin: 0 0 8px; }
+.ro-notes__preview code {
+  padding: 0 4px;
+  border: var(--ps-hair);
+  background: var(--ps-chrome);
+  font-family: var(--ps-font-mono);
+}
+.ro-notes__preview pre {
+  padding: 8px 10px;
+  border: var(--ps-hair);
+  background: var(--ps-panel);
+  color: var(--ps-panel-ink);
+  font-family: var(--ps-font-mono);
+  overflow: auto;
+}
+.ro-notes__preview pre code { border: 0; background: none; padding: 0; }
+.ro-notes__preview blockquote {
+  margin: 0 0 8px;
+  padding: 4px 10px;
+  border-left: 3px solid var(--ps-ink);
+  color: var(--ps-gray-400);
+}
+.ro-notes__preview hr { border: 0; border-top: var(--ps-hair); margin: 10px 0; }
+.ro-notes__preview .katex-display { margin: 8px 0; }
+.ro-notes__preview .tex-title { text-align: center; margin: 0 0 14px; padding-bottom: 10px; border-bottom: var(--ps-hair); }
+.ro-notes__preview .tex-title h1 { margin-bottom: 6px; }
+.ro-notes__preview .tex-title__authors { line-height: 1.5; }
+.ro-notes__preview .tex-title__date { margin-top: 4px; color: var(--ps-gray-400); font-size: var(--ps-px-2); }
+.ro-notes__preview .tex-abstract { margin: 0 8% 12px; padding: 8px 12px; border: var(--ps-hair); background: var(--ps-chrome); }
+.ro-notes__preview .tex-abstract h3 { margin-bottom: 4px; }
+.ro-notes__preview .tex-toc { margin: 0 0 12px; padding: 8px 12px; border: var(--ps-hair); }
+.ro-notes__preview .tex-toc ol { margin: 0; padding-left: 4px; list-style: none; }
+.ro-notes__preview .tex-toc__l2 { margin-left: 16px; list-style: none; }
+.ro-notes__preview .tex-figure, .ro-notes__preview .tex-table { margin: 0 0 12px; text-align: center; }
+.ro-notes__preview .tex-figure__frame { padding: 26px 12px; border: 1px dashed var(--ps-gray-300); color: var(--ps-gray-400); font-family: var(--ps-font-mono); }
+.ro-notes__preview .tex-table table { margin: 0 auto; border-collapse: collapse; }
+.ro-notes__preview .tex-table th, .ro-notes__preview .tex-table td { padding: 4px 12px; border-top: var(--ps-hair); border-bottom: var(--ps-hair); }
+.ro-notes__preview figcaption { margin-top: 6px; color: var(--ps-gray-400); font-size: var(--ps-px-2); }
+.ro-notes__preview .tex-ref { color: var(--ps-gray-400); }
+.ro-notes__preview .tex-thm { margin: 0 0 10px; padding: 6px 10px; border-left: 3px solid var(--ps-ink); background: var(--ps-chrome); }
+.ro-notes__preview .tex-thm__head { margin-bottom: 4px; }
+.ro-notes__preview .tex-thm__qed { text-align: right; margin: 0; }
+.ro-notes__preview .tex-keybox { margin: 0 0 12px; padding: 8px 12px; border: var(--ps-hair); border-left: 3px solid var(--ps-ink); background: var(--ps-chrome); }
+.ro-notes__preview .tex-keybox__title { margin: -8px -12px 8px; padding: 4px 12px; background: var(--ps-ink); color: var(--ps-paper); font-weight: 700; }
+.ro-notes__preview .tex-cbox { margin: 0 0 12px; padding: 6px 12px; }
+.ro-notes__preview .tex-fbox { margin: 0 0 12px; padding: 22px 12px; border: var(--ps-hair); text-align: center; }
+/* TikZ drawings: native SVG, theme-inked, shrink-to-fit */
+.tikz { display: block; margin: 12px auto; max-width: 100%; height: auto; color: var(--ps-ink); overflow: visible; }
+.tikz-fo { overflow: visible; pointer-events: none; }
+.tikz-nodetext { display: inline-block; font-size: 13px; line-height: 1.3; color: inherit; }
+.ro-notes__preview .tex-hrule { border: 0; border-top: 1px solid var(--ps-ink); margin: 8px 0; }
+.ro-notes__preview .tex-bib__list { padding-left: 22px; }
+.ro-notes__preview .tex-bib__list li { margin-bottom: 5px; }
+.ro-notes__preview .tex-img { max-width: 100%; }
+.ro-notes__preview .tex-mp { display: inline-block; vertical-align: top; min-width: 0; box-sizing: border-box; }
+.ro-notes__preview .tex-fs-LARGE { font-size: 1.55em; line-height: 1.25; }
+.ro-notes__preview .tex-fs-Large { font-size: 1.35em; }
+.ro-notes__preview .tex-fs-large { font-size: 1.15em; }
+.ro-notes__preview .tex-fs-small { font-size: 0.92em; }
+.ro-notes__preview .tex-fs-footnotesize { font-size: 0.85em; }
+.ro-notes__preview .tex-fs-scriptsize { font-size: 0.78em; }
+.ro-notes__preview .tex-fs-tiny { font-size: 0.7em; }
+.ro-notes__preview .tex-bf { font-weight: 700; }
+.ro-notes__preview .tex-it { font-style: italic; }
+.ro-notes__preview .tex-color-soft { color: var(--ps-gray-400); }
+.ro-notes__preview .tex-color-edge { color: var(--ps-gray-300); }
+
+.ro-pomodoro__body {
+  align-content: start;
+}
+/* PT-1: the deck's sibling appliance — an etched face plate around a
+   60-minute darkroom-timer dial */
+.ro-pomo__face {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px 14px;
+  border: var(--ps-hair);
+  border-radius: var(--ps-radius);
+  background: var(--ps-paper);
+  box-shadow: var(--ps-shadow-sm);
+}
+.ro-pomo__facetop {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.ro-pomo__model {
+  font-family: var(--ps-font-display);
+  font-size: var(--ps-px-3);
+  font-weight: 700;
+  letter-spacing: 2px;
+}
+.ro-pomo__lamp {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: var(--ps-hair);
+  background: var(--ps-paper);
+}
+.ro-pomo__lamp[data-on="true"] {
+  background: var(--ro-lamp);
+  box-shadow: 0 0 0 2px rgba(232, 100, 27, 0.25);
+}
+/* completed focus blocks stamp in like a film counter */
+.ro-pomo__tally {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--ps-font-mono);
+}
+.ro-pomo__tally strong {
+  margin-left: 4px;
+  font-size: var(--ps-px-3);
+}
+.ro-pomo__tally i {
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--ps-ink);
+}
+.ro-pomo__tally i[data-done="true"] {
+  background: var(--ps-ink);
+}
+.ro-pomo__dialwrap {
+  position: relative;
+  width: 178px;
+  height: 178px;
+  justify-self: center;
+}
+.ro-pomo__dial {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.ro-pomo__dial .ro-dial__tick { stroke: var(--ps-gray-300); stroke-width: 1; }
+.ro-pomo__dial .ro-dial__tick--q { stroke: var(--ps-ink); stroke-width: 2; }
+.ro-pomo__dial .ro-dial__rim { fill: none; stroke: var(--ps-ink); stroke-width: 1.5; }
+.ro-pomo__dial .ro-dial__wedge { fill: var(--ps-accent); stroke: var(--ps-ink); stroke-width: 1; }
+.ro-pomo__dial .ro-dial__hubring { fill: var(--ps-paper); stroke: var(--ps-ink); stroke-width: 1.5; }
+.ro-pomo__hub {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 2px;
+  text-align: center;
+  pointer-events: none;
+}
+.ro-pomo__hublabel {
+  color: var(--ps-gray-400);
+  font-family: var(--ps-font-bar);
+  font-size: var(--ps-px-1);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.ro-pomo__hubtime {
+  font-family: var(--ps-font-mono);
+  font-size: 27px;
+  line-height: 1;
+}
+.ro-pomo__actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.ro-pomo__actions .ps-btn {
+  min-height: 44px;
+  justify-content: center;
+  border-bottom-width: 3px;
+  box-shadow: var(--ps-shadow-sm);
+}
+
+.ro-todo__top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+.ro-todo__body {
+  grid-template-rows: auto auto auto auto;
+  align-content: start;
+}
+.ro-todo__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 232px;
+  overflow: auto;
+  min-height: 0;
+  box-sizing: border-box;
+}
+.ro-todo__item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 10px;
+  border: var(--ps-hair);
+  background: var(--ps-paper);
+  flex: 0 0 auto;
+}
+.ro-todo__item[data-done="true"] .ro-todo__text {
+  color: var(--ps-gray-400);
+  text-decoration: line-through;
+}
+.ro-todo__toggle {
+  width: 18px;
+  height: 18px;
+  border: var(--ps-hair);
+  background: var(--ps-paper);
+  display: grid;
+  place-items: center;
+  padding: 0;
+  cursor: pointer;
+}
+.ro-todo__toggle:active {
+  box-shadow: var(--ps-inset);
+}
+.ro-todo__toggle[aria-pressed="true"] {
+  background: var(--ps-face);
+}
+.ro-todo__text {
+  min-width: 0;
+  word-break: break-word;
+}
+
+.ro-calc__display {
+  min-height: 74px;
+  padding: 10px 12px;
+  border: var(--ps-hair);
+  background: var(--ps-panel);
+  color: var(--ps-panel-ink);
+  font-family: var(--ps-font-mono);
+  font-size: 32px;
+  line-height: 1.1;
+  text-align: right;
+  box-shadow: var(--ps-shadow-sm);
+  overflow-wrap: anywhere;
+}
+.ro-calc__keys {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-auto-rows: 42px;
+  gap: 8px;
+  min-height: 0;
+  align-content: start;
+}
+.ro-calc__keys .ps-btn {
+  min-height: 42px;
+  justify-content: center;
+}
+.ro-calc__body {
+  align-content: start;
+}
+/* when the viewport clamps the window, scroll instead of cropping the keys
+   flush against the frame; must outrank .ro-shell .ps-window__body */
+.ro-shell .ro-calc .ps-window__body {
+  overflow-y: auto;
+}
+.ro-calc__scikeys {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-auto-rows: 36px;
+  gap: 6px;
+  align-content: start;
+}
+.ro-calc__scikeys[hidden] { display: none; }
+.ro-calc__scikeys .ps-btn {
+  min-height: 36px;
+  padding: 0 4px;
+  justify-content: center;
+  font-size: var(--ps-px-2);
+}
+.ro-calc[data-calcmode="sci"] {
+  min-width: 322px;
+}
+
+/* The deck face: one solid appliance, TP-7 style — big silver platter with a
+   hub you press to load media, an OLED counter, a hardware record lamp that
+   stays orange in every theme, and a row of chunky mechanical keys. */
+.ro-deck {
+  --ro-lamp: #e8641b;
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  padding: 10px;
+  border: var(--ps-hair);
+  border-radius: var(--ps-radius);
+  background: linear-gradient(180deg, var(--ps-chrome) 0%, var(--ps-gray-100) 100%);
+  box-shadow: var(--ps-inset);
+}
+.ro-deck__top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.ro-deck__model {
+  font-family: var(--ps-font-bar);
+  font-size: var(--ps-px-3);
+  letter-spacing: 2px;
+}
+.ro-deck__lamp {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: var(--ps-hair);
+  background: var(--ps-paper);
+}
+.ro-deck__lamp[data-on="true"] {
+  background: var(--ro-lamp);
+  box-shadow: 0 0 0 2px rgba(232, 100, 27, 0.25);
+}
+.ro-deck__oled {
+  margin-left: auto;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 4px 10px;
+  border: var(--ps-hair);
+  background: var(--ps-panel);
+  color: var(--ps-panel-ink);
+  font-family: var(--ps-font-mono);
+}
+.ro-deck__oled strong {
+  font-size: var(--ps-px-5);
+  font-weight: 400;
+  letter-spacing: 1px;
+}
+.ro-deck__oled span {
+  color: var(--ps-panel-dim);
+  font-size: var(--ps-px-3);
+}
+.ro-deck__stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 48px;
+  gap: 12px;
+  align-items: center;
+}
+.ro-disc-wrap {
+  position: relative;
+  width: min(100%, 200px);
+  margin: 0 auto;
+  aspect-ratio: 1 / 1;
+}
+.ro-disc {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: var(--ps-hair);
+  background:
+    radial-gradient(circle,
+      var(--ps-gray-200) 0 18%, var(--ps-gray-100) 18% 19%,
+      var(--ps-gray-100) 19% 57%, var(--ps-gray-200) 57% 58%,
+      var(--ps-gray-100) 58% 78%, var(--ps-gray-200) 78% 79%,
+      var(--ps-gray-100) 79%);
+  box-shadow: var(--ps-shadow), var(--ps-outset);
+  position: relative;
+}
+.ro-disc__line {
+  position: absolute;
+  inset: 6%;
+  border-radius: 50%;
+  background: linear-gradient(45deg,
+    transparent calc(50% - 1px),
+    var(--ps-gray-300) calc(50% - 1px) calc(50% + 1px),
+    transparent calc(50% + 1px));
+}
+/* while tape rolls, the platter takes the track's own colours: the title is
+   hashed into two HSL hues (set as --ro-disc-a/b by the deck code) and the
+   conic gradient spins with the disc; the ring engravings stay on top */
+.ro-disc[data-spin="true"] {
+  background:
+    radial-gradient(circle,
+      transparent 0 18%, rgba(0, 0, 0, 0.22) 18% 19%,
+      transparent 19% 57%, rgba(0, 0, 0, 0.22) 57% 58%,
+      transparent 58% 78%, rgba(0, 0, 0, 0.22) 78% 79%, transparent 79%),
+    conic-gradient(from 0deg,
+      var(--ro-disc-a, #7fa8c9), var(--ro-disc-b, #35566e), var(--ro-disc-a, #7fa8c9));
+  animation: ro-spin 3.4s linear infinite;
+}
+.ro-loadmenu {
+  position: absolute;
+  left: 50%;
+  top: calc(50% + 50px);
+  transform: translateX(-50%);
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  z-index: 6;
+  border: var(--ps-hair);
+  border-radius: var(--ps-radius);
+  background: var(--ps-paper);
+  box-shadow: var(--ps-shadow);
+}
+.ro-loadmenu[hidden] { display: none; }
+@keyframes ro-spin {
+  to { transform: rotate(360deg); }
+}
+.ro-disc__hub {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 86px;
+  height: 86px;
+  border-radius: 50%;
+  border: var(--ps-hair);
+  background:
+    radial-gradient(circle at 50% 22%, var(--ps-gray-300) 0 2px, transparent 3px),
+    radial-gradient(circle at 26% 70%, var(--ps-gray-300) 0 2px, transparent 3px),
+    radial-gradient(circle at 74% 70%, var(--ps-gray-300) 0 2px, transparent 3px),
+    linear-gradient(180deg, var(--ps-gray-100), var(--ps-gray-200));
+  box-shadow: var(--ps-shadow-sm);
+  font-family: var(--ps-font-bar);
+  font-size: var(--ps-px-1);
+  letter-spacing: 1px;
+  color: var(--ps-gray-400);
+  cursor: pointer;
+}
+.ro-disc__hub:hover,
+.ro-disc__hub:focus-visible {
+  color: var(--ps-ink);
+  box-shadow: var(--ps-shadow-sm), inset 0 0 0 2px var(--ps-accent);
+  outline: none;
+}
+.ro-disc__hub:active {
+  box-shadow: var(--ps-inset);
+  transform: translate(calc(-50% + 1px), calc(-50% + 1px));
+}
+.ro-deck__side {
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  align-content: center;
+}
+.ro-roundbtn {
+  width: 38px;
+  min-height: 38px;
+  padding: 0;
+  border-radius: 50%;
+  justify-content: center;
+  font-size: var(--ps-px-4);
+}
+/* the tick strip IS the volume meter: lit ticks fill bottom-up in accent */
+.ro-deck__ticks {
+  width: 20px;
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 6px;
+}
+.ro-deck__ticks i {
+  height: 1px;
+  background: var(--ps-gray-300);
+}
+.ro-deck__ticks i[data-lit="true"] {
+  height: 2px;
+  background: var(--ps-accent);
+}
+.ro-deck__titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border: var(--ps-hair);
+  border-radius: var(--ps-radius);
+  background: var(--ps-paper);
+  box-shadow: var(--ps-shadow-sm);
+}
+.ro-deck__titles {
+  min-width: 0;
+}
+.ro-deck__keys {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+.ro-deck__keys .ps-btn {
+  min-height: 52px;
+  justify-content: center;
+  border-bottom-width: 3px;
+  box-shadow: var(--ps-shadow-sm);
+}
+.ro-deck__keys .ps-icon {
+  pointer-events: none;
+}
+.ro-deck__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+}
+.ro-player__title {
+  font-family: var(--ps-font-display);
+  font-size: 19px;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ro-player__meta {
+  color: var(--ps-gray-400);
+  font-family: var(--ps-font-mono);
+  font-size: var(--ps-px-3);
+}
+/* the waveform must stay inside its half of the row: bars flex instead of
+   keeping their fixed width, and the box clips rather than escapes */
+.ro-player__wave {
+  min-width: 0;
+  overflow: hidden;
+}
+.ro-player__wave .ps-waveform {
+  height: 40px;
+  width: 100%;
+  box-sizing: border-box;
+}
+.ro-player__wave .ps-waveform__bar {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.ro-player__wave {
+  cursor: pointer;
+  touch-action: none;
+}
+/* played bars carry the accent: the waveform is the seek bar now */
+.ro-player__wave .ps-waveform__bar[data-past="true"] {
+  background: var(--ps-accent);
+}
+.ro-player__wave:focus-visible {
+  outline: 2px solid var(--ps-accent);
+  outline-offset: 2px;
+}
+.ro-player__playlist {
+  height: 88px;
+  max-height: 88px;
+  overflow: auto;
+  min-width: 0;
+  min-height: 0;
+}
+.ro-track {
+  display: flex;
+  align-items: stretch;
+}
+.ro-track .ps-listbox__opt {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.ro-track__eject {
+  flex: 0 0 auto;
+  align-self: center;
+  margin-right: 4px;
+}
+.ro-player__playlist .ps-listbox {
+  max-height: none;
+}
+.ro-player__vu .ps-vu {
+  height: 40px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 1180px) {
+  body { overflow: auto; }
+  .ro-shell { overflow: visible; }
+  .ro-canvas {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 14px 14px 92px;
+    overflow: visible;
+  }
+  .ro-icons {
+    position: static;
+    order: -1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .ps-window--floating:not([data-max="true"]) {
+    position: static !important;
+    width: auto !important;
+    height: auto !important;
+    max-width: none !important;
+    transform: none !important;
+  }
+  .ps-window--floating[data-max="true"] {
+    position: fixed !important;
+    inset: 44px 12px 88px !important;
+    width: auto !important;
+    height: auto !important;
+    max-width: none !important;
+    transform: none !important;
+  }
+  .ro-dockwrap {
+    position: sticky;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    transform: none;
+    padding-top: 12px;
+  }
+  .ro-dockwrap .ps-dock {
+    width: 100%;
+    border-left: 0;
+    border-right: 0;
+    border-radius: 0;
+    overflow-x: auto;
+  }
+  .ro-toasts {
+    left: 12px;
+    right: 12px;
+    bottom: 84px;
+  }
+  .ro-player,
+  .ro-settings,
+  .ro-notes,
+  .ro-pomodoro,
+  .ro-todo,
+  .ro-calc {
+    min-width: 0;
+    min-height: 0;
+  }
+  .ro-boot__actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .ro-resize { display: none; }
+}
+
+@media (max-width: 860px) {
+  .ro-settings__layout,
+  .ro-notes__meta,
+  .ro-pomo__top,
+  .ro-settings__themes,
+  .ro-todo__top {
+    grid-template-columns: 1fr;
+  }
+  .ro-settings__layout {
+    min-height: 0;
+  }
+  .ro-settings__panel .ps-formrow--inline {
+    grid-template-columns: 1fr;
+  }
+  .ro-settings__panel .ps-formrow--inline .ps-help,
+  .ro-settings__panel .ps-formrow--inline .ps-error {
+    grid-column: auto;
+  }
+  .ro-settings__rail {
+    border-right: 0;
+    border-bottom: var(--ps-hair);
+  }
+  .ro-browser__frame,
+  .ro-manual__frame {
+    min-height: 300px;
+  }
+}
+</style>
+</head>
+<body>
+<div class="ps-desktop ro-shell"
+     id="desktop"
+     data-wall="grid"
+     data-tint="lagoon"
+     data-scanlines="on"
+     data-shadows="on">
+  <!-- Utilitarian menubar: every readout on the right is live state and a
+       shortcut to the app that owns it. -->
+  <div class="ps-menubar" role="menubar" aria-label="System">
+    <div class="ps-menubar__item ps-menubar__item--icon" aria-hidden="true"><svg class="ps-icon"><use href="#i-logo"/></svg></div>
+    <div class="ps-menubar__item">RetOS</div>
+    <div class="ps-menubar__item" id="activeApp">Workspace</div>
+    <div class="ps-menubar__gap"></div>
+    <button class="ps-menubar__item ps-menubar__item--end" type="button" id="mbTrack" data-interactive data-open="player" hidden>
+      <svg class="ps-icon ps-icon--12"><use href="#i-note"/></svg><span id="mbTrackText"></span>
+    </button>
+    <button class="ps-menubar__item ps-menubar__item--end" type="button" id="mbPomo" data-interactive data-open="pomodoro" hidden>
+      <svg class="ps-icon ps-icon--12"><use href="#i-clock"/></svg><span id="mbPomoText"></span>
+    </button>
+    <button class="ps-menubar__item ps-menubar__item--end" type="button" id="mbTasks" data-interactive data-open="todo">0 tasks</button>
+    <button class="ps-menubar__item ps-menubar__item--end" type="button" id="themeLabel" data-interactive>Theme: Paper</button>
+    <div class="ps-menubar__item ps-menubar__item--end ro-date" id="todayLabel">Tue 11 Aug 2026</div>
+    <div class="ps-menubar__item ps-menubar__item--end ro-clock" id="clock">00:00</div>
+  </div>
+
+  <div class="ro-canvas" id="canvas">
+    <div class="ps-deskicons ro-icons">
+      <button class="ps-deskicon" data-open="browser">
+        <span class="ps-deskicon__glyph"><svg class="ps-icon ps-icon--24"><use href="#i-globe"/></svg></span>
+        <span class="ps-deskicon__label">Navigator</span>
+      </button>
+      <button class="ps-deskicon" data-open="player">
+        <span class="ps-deskicon__glyph"><svg class="ps-icon ps-icon--24"><use href="#i-disc"/></svg></span>
+        <span class="ps-deskicon__label">Media Deck</span>
+      </button>
+      <button class="ps-deskicon" data-open="settings">
+        <span class="ps-deskicon__glyph"><svg class="ps-icon ps-icon--24"><use href="#i-gear"/></svg></span>
+        <span class="ps-deskicon__label">Settings</span>
+      </button>
+      <button class="ps-deskicon" data-open="manual">
+        <span class="ps-deskicon__glyph"><svg class="ps-icon ps-icon--24"><use href="#i-doc"/></svg></span>
+        <span class="ps-deskicon__label">PDF</span>
+      </button>
+      <button class="ps-deskicon" data-open="notes">
+        <span class="ps-deskicon__glyph"><svg class="ps-icon ps-icon--24"><use href="#i-pencil"/></svg></span>
+        <span class="ps-deskicon__label">Notes</span>
+      </button>
+      <button class="ps-deskicon" data-open="calc">
+        <span class="ps-deskicon__glyph"><svg class="ps-icon ps-icon--24"><use href="#i-plus"/></svg></span>
+        <span class="ps-deskicon__label">Calc</span>
+      </button>
+    </div>
+
+    <section class="ps-window ps-window--floating ro-browser" id="win-browser" data-app="Navigator">
+      <header class="ps-window__titlebar">
+        <button class="ps-winbtn" type="button" data-close="browser" aria-label="Close navigator"><svg class="ps-icon"><use href="#i-close"/></svg></button>
+        <button class="ps-winbtn" type="button" data-zoom="browser" aria-label="Zoom navigator"><svg class="ps-icon"><use href="#i-zoom"/></svg></button>
+        <span class="ps-window__title">Navigator</span>
+      </header>
+      <div class="ps-window__body ro-browser__body">
+        <input type="file" id="browserFiles" accept=".html,.htm,.pdf,text/html,application/pdf,text/plain,image/*" hidden>
+        <div class="ro-browser__tabsbar">
+          <div class="ro-browser__tabs" id="browserTabs"></div>
+          <button class="ps-btn ps-btn--face ps-btn--icon" id="browserNewTab" aria-label="New tab"><svg class="ps-icon"><use href="#i-plus"/></svg></button>
+        </div>
+        <div class="ro-toolbar">
+          <button class="ps-btn ps-btn--face ps-btn--icon" id="browserBack" aria-label="Back"><svg class="ps-icon"><use href="#i-prev"/></svg></button>
+          <button class="ps-btn ps-btn--face ps-btn--icon" id="browserForward" aria-label="Forward"><svg class="ps-icon"><use href="#i-next"/></svg></button>
+          <button class="ps-btn ps-btn--face ps-btn--icon" id="browserReload" aria-label="Reload page"><svg class="ps-icon"><use href="#i-refresh"/></svg></button>
+          <button class="ps-btn ps-btn--face ps-btn--icon" id="browserOpenFile" aria-label="Open local file"><svg class="ps-icon"><use href="#i-folder-open"/></svg></button>
+          <button class="ps-btn ps-btn--face" id="browserHome">Start</button>
+          <div class="ps-field ro-toolbar__grow"><input class="ps-input" id="browserAddress" value="retos://start" aria-label="Web address or search"></div>
+          <button class="ps-btn ps-btn--accent" id="browserGo">Go</button>
+          <button class="ps-btn ps-btn--face ps-btn--icon" id="browserPopout" aria-label="Open this page in a real browser tab"><svg class="ps-icon"><use href="#i-window"/></svg></button>
+        </div>
+        <div class="ro-browser__bookmarks">
+          <button class="ro-bookmark" data-url="https://search.marginalia.nu/"><svg class="ps-icon ps-icon--12"><use href="#i-search"/></svg> Marginalia</button>
+          <button class="ro-bookmark" data-url="http://frogfind.com/"><svg class="ps-icon ps-icon--12"><use href="#i-wave"/></svg> FrogFind</button>
+          <button class="ro-bookmark" data-url="https://wiby.me/"><svg class="ps-icon ps-icon--12"><use href="#i-globe"/></svg> Wiby</button>
+          <button class="ro-bookmark" data-url="https://en.wikipedia.org/wiki/Special:Random"><svg class="ps-icon ps-icon--12"><use href="#i-book"/></svg> Wikipedia</button>
+          <button class="ro-bookmark" data-url="http://textfiles.com/"><svg class="ps-icon ps-icon--12"><use href="#i-list"/></svg> TextFiles</button>
+        </div>
+        <div class="ro-browser__frame" id="browserFrameSeat">
+          <div class="ro-browser__routeview" id="browserRouteView" hidden></div>
+          <!-- tab frames are seated here, one live iframe per tab -->
+        </div>
+        <div class="ro-browser__status">
+          <span id="browserStatus">Ready to open local pages and files.</span>
+          <span class="ro-browser__route" id="browserRouteReadout">retos://start</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="ps-window ps-window--utility ps-window--floating ro-player" id="win-player" data-app="Media Deck">
+      <header class="ps-window__titlebar">
+        <button class="ps-winbtn" type="button" data-close="player" aria-label="Close media deck"><svg class="ps-icon"><use href="#i-close"/></svg></button>
+        <span class="ps-window__title">Media Deck</span>
+      </header>
+      <div class="ps-window__body ro-player__body">
+        <input type="file" id="playerFiles" accept="audio/*,.mp3,.wav,.ogg,.m4a,.flac,.aac" multiple hidden>
+        <input type="file" id="playerFolder" webkitdirectory hidden>
+        <div class="ro-deck">
+          <div class="ro-deck__top">
+            <span class="ro-deck__model">BH&#8211;7</span>
+            <span class="ro-deck__lamp" id="playerLamp" data-on="false" aria-hidden="true"></span>
+            <div class="ro-deck__oled">
+              <strong id="playerOledTime">0.00.00</strong>
+              <span id="playerOledIndex">01</span>
+            </div>
+          </div>
+          <div class="ro-deck__stage">
+            <div class="ro-disc-wrap">
+              <div class="ro-disc" id="playerDisc" data-spin="false">
+                <span class="ro-disc__line" aria-hidden="true"></span>
+              </div>
+              <button class="ro-disc__hub" id="playerUpload" type="button" aria-label="Load media files or a folder" aria-haspopup="menu">LOAD</button>
+              <div class="ro-loadmenu" id="playerLoadMenu" role="menu" hidden>
+                <button class="ps-btn ps-btn--face" id="playerLoadFiles" type="button" role="menuitem">Files&#8230;</button>
+                <button class="ps-btn ps-btn--face" id="playerLoadFolder" type="button" role="menuitem">Folder&#8230;</button>
+              </div>
+            </div>
+            <div class="ro-deck__side">
+              <button class="ps-btn ps-btn--face ro-roundbtn" id="playerVolUp" type="button" aria-label="Volume up">+</button>
+              <button class="ps-btn ps-btn--face ro-roundbtn" id="playerVolDown" type="button" aria-label="Volume down">&#8722;</button>
+              <span class="ro-deck__ticks" id="playerVolTicks" role="meter" aria-label="Volume" aria-valuemin="0" aria-valuemax="100"></span>
+            </div>
+          </div>
+          <div class="ro-deck__titlebar">
+            <div class="ro-deck__titles">
+              <div class="ro-player__title" id="playerTitle">Startup Jam</div>
+              <div class="ro-player__meta" id="playerMeta">RetOS demo disk · 00:00 / 00:00</div>
+            </div>
+            <button class="ps-winbtn" id="playerHeart" type="button" aria-label="Favourite this track"><svg class="ps-icon"><use href="#i-heart"/></svg></button>
+          </div>
+          <div class="ro-deck__row">
+            <div class="ro-player__wave" id="playerWave" title="Click or drag to seek" role="slider" tabindex="0" aria-label="Seek position" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div>
+            <div class="ro-player__vu" id="playerVu"></div>
+          </div>
+          <div class="ro-deck__keys">
+            <button class="ps-btn ps-btn--face" id="playerPrev" aria-label="Previous track" title="Previous track"><svg class="ps-icon"><use href="#i-prev"/></svg></button>
+            <button class="ps-btn ps-btn--accent" id="playerPlay" aria-label="Play track" title="Play track"><svg class="ps-icon"><use href="#i-play"/></svg></button>
+            <button class="ps-btn ps-btn--face" id="playerStop" aria-label="Stop playback" title="Stop playback"><svg class="ps-icon"><use href="#i-stop"/></svg></button>
+            <button class="ps-btn ps-btn--face" id="playerNext" aria-label="Next track" title="Next track"><svg class="ps-icon"><use href="#i-next"/></svg></button>
+          </div>
+          <div class="ps-listbox ro-player__playlist" id="playerPlaylist" role="listbox" aria-label="Playlist"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="ps-window ps-window--utility ps-window--floating ro-settings" id="win-settings" data-app="Settings" hidden>
+      <header class="ps-window__titlebar">
+        <button class="ps-winbtn" type="button" data-close="settings" aria-label="Close settings"><svg class="ps-icon"><use href="#i-close"/></svg></button>
+        <span class="ps-window__title">Settings</span>
+      </header>
+      <div class="ps-window__body ro-settings__body">
+        <div class="ro-settings__layout">
+          <div class="ro-settings__rail" id="settingsTabs"></div>
+          <div class="ro-settings__panes">
+            <section class="ro-settings__panel" data-settings-panel="appearance">
+              <div>
+                <h2 class="ps-legend">Appearance</h2>
+                <p class="ro-settings__lead">Change the full system palette in one hit. Theme selection is part of the workstation, not bolted on.</p>
+              </div>
+              <div class="ro-settings__themes" id="themeGrid"></div>
+              <div class="ro-previewcard">
+                <div class="ro-previewcard__title">Current Theme</div>
+                <div class="ro-previewcard__value" id="settingsThemeName">Paper</div>
+              </div>
+            </section>
+
+            <section class="ro-settings__panel" data-settings-panel="desktop" hidden>
+              <div>
+                <h2 class="ps-legend">Desktop</h2>
+                <p class="ro-settings__lead">Wallpaper tint, pattern, scanlines, and shadows all update live across the shell.</p>
+              </div>
+              <fieldset class="ps-fieldset">
+                <legend>Backdrops</legend>
+                <div class="ps-formrow ps-formrow--inline">
+                  <label class="ps-formrow__label" for="tintSelect">Backdrop tint</label>
+                  <select class="ps-select ps-select--native" id="tintSelect" aria-label="Backdrop tint">
+                    <option value="lagoon">Lagoon</option>
+                    <option value="sunrise">Sunrise</option>
+                    <option value="mono">Mono</option>
+                    <option value="phosphor">Phosphor</option>
+                    <option value="amber">Amber</option>
+                  </select>
+                </div>
+                <div class="ps-formrow ps-formrow--inline">
+                  <label class="ps-formrow__label" for="wallSelect">Desk pattern</label>
+                  <select class="ps-select ps-select--native" id="wallSelect" aria-label="Desk pattern">
+                    <option value="grid">Wire grid</option>
+                    <option value="dots">Halftone dots</option>
+                    <option value="wave">Soft bloom</option>
+                  </select>
+                </div>
+                <div class="ps-formrow ps-formrow--inline">
+                  <label class="ps-formrow__label" for="wallUpload">Wallpaper</label>
+                  <div class="ro-settings__switchrow">
+                    <input type="file" id="wallFile" accept="image/*" hidden>
+                    <button class="ps-btn ps-btn--face" id="wallUpload" type="button">Upload image</button>
+                    <button class="ps-btn ps-btn--plain" id="wallClear" type="button">Clear</button>
+                    <span class="ps-help" id="wallStatus">No image set; tint and pattern show through.</span>
+                  </div>
+                </div>
+              </fieldset>
+              <fieldset class="ps-fieldset">
+                <legend>Display</legend>
+                <div class="ps-formrow ps-formrow--inline">
+                  <label class="ps-formrow__label" for="scanToggle">Scanlines</label>
+                  <div class="ro-settings__switchrow">
+                    <button class="ps-switch" id="scanToggle" aria-checked="true" aria-label="Scanlines"><span class="ps-switch__knob"></span></button>
+                    <span class="ps-help">Overlay a faint CRT pass across the desktop.</span>
+                  </div>
+                </div>
+                <div class="ps-formrow ps-formrow--inline">
+                  <label class="ps-formrow__label" for="shadowToggle">Window shadows</label>
+                  <div class="ro-settings__switchrow">
+                    <button class="ps-switch" id="shadowToggle" aria-checked="true" aria-label="Window shadows"><span class="ps-switch__knob"></span></button>
+                    <span class="ps-help">Turns hard shadows on or off across every window.</span>
+                  </div>
+                </div>
+              </fieldset>
+            </section>
+
+            <section class="ro-settings__panel" data-settings-panel="audio" hidden>
+              <div>
+                <h2 class="ps-legend">Audio</h2>
+                <p class="ro-settings__lead">The media deck has its own default level, boot screen policy, and a quick demo restore if you want to start over.</p>
+              </div>
+              <fieldset class="ps-fieldset">
+                <legend>Sound</legend>
+                <div class="ps-formrow ps-formrow--inline">
+                  <label class="ps-formrow__label" for="settingsVolume">Default deck volume</label>
+                  <div class="ro-settings__switchrow">
+                    <input class="ps-slider" id="settingsVolume" type="range" min="0" max="100" value="82" aria-label="Default deck volume">
+                    <span class="ro-voltext" id="settingsVolumeText">82%</span>
+                  </div>
+                </div>
+                <div class="ps-formrow ps-formrow--inline">
+                  <label class="ps-formrow__label" for="bootToggle">Boot animation</label>
+                  <div class="ro-settings__switchrow">
+                    <button class="ps-switch" id="bootToggle" aria-checked="true" aria-label="Boot animation"><span class="ps-switch__knob"></span></button>
+                    <span class="ps-help">Shows the startup splash every time the example loads.</span>
+                  </div>
+                </div>
+              </fieldset>
+              <div class="ro-toolbar">
+                <button class="ps-btn ps-btn--face" id="playerRestoreDemo">Restore demo playlist</button>
+                <span class="ps-meta">Useful after you have filled the deck with your own tracks.</span>
+              </div>
+            </section>
+
+            <section class="ro-settings__panel" data-settings-panel="startup" hidden>
+              <div>
+                <h2 class="ps-legend">Startup</h2>
+                <p class="ro-settings__lead">Choose which apps appear when RetOS opens, then re-apply the layout or open the whole desk at once.</p>
+              </div>
+              <div class="ro-startup">
+                <div class="ro-startup__list" id="startupList"></div>
+                <div class="ro-toolbar">
+                  <button class="ps-btn ps-btn--accent" id="startupApply">Apply startup layout</button>
+                  <button class="ps-btn ps-btn--face" id="startupOpenAll">Open every app</button>
+                  <button class="ps-btn ps-btn--face" id="layoutReset">Reset positions</button>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="ps-window ps-window--floating ro-manual" id="win-manual" data-app="PDF Viewer" hidden>
+      <header class="ps-window__titlebar">
+        <button class="ps-winbtn" type="button" data-close="manual" aria-label="Close manual"><svg class="ps-icon"><use href="#i-close"/></svg></button>
+        <button class="ps-winbtn" type="button" data-zoom="manual" aria-label="Zoom manual"><svg class="ps-icon"><use href="#i-zoom"/></svg></button>
+        <span class="ps-window__title">PDF Viewer</span>
+      </header>
+      <div class="ps-window__body ro-manual__body">
+        <input type="file" id="manualFiles" accept="application/pdf,.pdf" hidden>
+        <div class="ro-toolbar">
+          <button class="ps-btn ps-btn--accent" id="manualUpload">Load PDF</button>
+          <a class="ps-btn ps-btn--face" id="manualOpenFull" href="#" target="_blank" rel="noopener" hidden>Open full size</a>
+          <button class="ps-btn ps-btn--face" id="manualInBrowser">Open in navigator</button>
+          <button class="ps-btn ps-btn--face" id="manualReload">Reload</button>
+        </div>
+        <div class="ro-manual__drop" id="manualDrop">Drop a PDF anywhere in this window, or use Load PDF.</div>
+        <div class="ps-meta ro-manual__status" id="manualStatus">Nothing loaded.</div>
+        <div class="ro-manual__frame">
+          <div class="ro-manual__empty" id="manualEmpty">No PDF on the platen.<br>Load one, or drop it here.</div>
+          <iframe id="manualFrame" title="PDF viewer" hidden></iframe>
+        </div>
+      </div>
+    </section>
+
+    <section class="ps-window ps-window--floating ro-notes" id="win-notes" data-app="Notes">
+      <header class="ps-window__titlebar">
+        <button class="ps-winbtn" type="button" data-close="notes" aria-label="Close notes"><svg class="ps-icon"><use href="#i-close"/></svg></button>
+        <button class="ps-winbtn" type="button" data-zoom="notes" aria-label="Zoom notes"><svg class="ps-icon"><use href="#i-zoom"/></svg></button>
+        <span class="ps-window__title">Notes</span>
+      </header>
+      <div class="ps-window__body ro-notes__body">
+        <input type="file" id="notesImportFiles" accept=".txt,.md,.markdown,.tex,.sty,.bib,.png,.jpg,.jpeg,.gif,.webp,.svg,text/plain,image/*" multiple hidden>
+        <input type="file" id="notesImportFolder" webkitdirectory hidden>
+        <div class="ro-toolbar">
+          <button class="ps-btn ps-btn--face" id="notesNew">New</button>
+          <button class="ps-btn ps-btn--face" id="notesNewFolder">New folder</button>
+          <button class="ps-btn ps-btn--face" id="notesImportFilesBtn">Import files</button>
+          <button class="ps-btn ps-btn--face" id="notesImportFolderBtn">Import folder</button>
+          <span id="notesModeSeat"></span>
+          <span class="ps-toolbar__gap"></span>
+          <button class="ps-btn ps-btn--accent" id="notesPreviewToggle" aria-pressed="false">Preview</button>
+          <button class="ps-btn ps-btn--face" id="notesPdf" title="Typeset this document and save it as a PDF">PDF</button>
+        </div>
+        <div class="ro-notes__layout">
+          <div class="ps-listbox ro-notes__rail" id="notesList" role="listbox" aria-label="Documents"></div>
+          <div class="ro-notes__main">
+            <div class="ro-notes__meta">
+              <div class="ps-field ro-notes__title"><input class="ps-input" id="notesTitle" aria-label="Document name" placeholder="Document name"></div>
+              <span class="ps-meta" id="notesStatus">Autosaves locally.</span>
+              <button class="ps-btn ps-btn--plain" id="notesExport">Export</button>
+            </div>
+            <div class="ro-notes__editors">
+              <textarea class="ps-textarea ro-notes__pad" id="notesPad" placeholder="Write anything. Markdown and TeX both live-preview."></textarea>
+              <div class="ro-notes__preview" id="notesPreview" hidden></div>
+            </div>
+          </div>
+        </div>
+        <div class="ro-toolbar">
+          <span class="ps-meta" id="notesHint">Plain, Markdown, or TeX — import a whole folder and \input{} resolves against it.</span>
+          <span class="ps-toolbar__gap"></span>
+          <button class="ps-btn ps-btn--face" id="notesClear">Clear</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="ps-window ps-window--utility ps-window--floating ro-pomodoro" id="win-pomodoro" data-app="Pomodoro">
+      <header class="ps-window__titlebar">
+        <button class="ps-winbtn" type="button" data-close="pomodoro" aria-label="Close pomodoro"><svg class="ps-icon"><use href="#i-close"/></svg></button>
+        <span class="ps-window__title">Pomodoro</span>
+      </header>
+      <div class="ps-window__body ro-pomodoro__body">
+        <div id="pomoModes"></div>
+        <div class="ro-pomo__face">
+          <div class="ro-pomo__facetop">
+            <span class="ro-pomo__model">PT&#8211;1</span>
+            <span class="ro-pomo__lamp" id="pomoLamp" data-on="false" aria-hidden="true"></span>
+            <span class="ro-pomo__tally" id="pomoTally" title="Focus blocks completed today">
+              <strong id="pomoSessions">0</strong>
+            </span>
+          </div>
+          <div class="ro-pomo__dialwrap">
+            <svg class="ro-pomo__dial" id="pomoDial" viewBox="0 0 200 200" role="img" aria-label="Countdown dial: wedge spans the remaining minutes on a 60-minute face"></svg>
+            <div class="ro-pomo__hub">
+              <div class="ro-pomo__hublabel" id="pomoLabel">Focus block</div>
+              <div class="ro-pomo__hubtime" id="pomoTime">25:00</div>
+            </div>
+          </div>
+        </div>
+        <div class="ps-field"><input class="ps-input" id="pomoTask" aria-label="Current focus task" placeholder="Current focus task"></div>
+        <div class="ro-pomo__actions">
+          <button class="ps-btn ps-btn--accent" id="pomoStart">Start</button>
+          <button class="ps-btn ps-btn--face" id="pomoPause">Pause</button>
+          <button class="ps-btn ps-btn--face" id="pomoReset">Reset</button>
+        </div>
+        <div class="ro-toolbar">
+          <button class="ps-btn ps-btn--face" id="pomoFromTodo">Load next task</button>
+          <span class="ps-meta" id="pomoStatus">Next block is ready when you are.</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="ps-window ps-window--utility ps-window--floating ro-todo" id="win-todo" data-app="Todo">
+      <header class="ps-window__titlebar">
+        <button class="ps-winbtn" type="button" data-close="todo" aria-label="Close todo"><svg class="ps-icon"><use href="#i-close"/></svg></button>
+        <span class="ps-window__title">Todo</span>
+      </header>
+      <div class="ps-window__body ro-todo__body">
+        <div id="todoFilters"></div>
+        <form class="ro-todo__top" id="todoForm">
+          <div class="ps-field"><input class="ps-input" id="todoInput" placeholder="Add a task" aria-label="Add a task"></div>
+          <button class="ps-btn ps-btn--accent" type="submit">Add</button>
+        </form>
+        <div class="ro-todo__list" id="todoList"></div>
+        <div class="ro-toolbar">
+          <button class="ps-btn ps-btn--face" id="todoClearDone">Clear done</button>
+          <span class="ps-meta" id="todoCount">0 open tasks</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="ps-window ps-window--utility ps-window--floating ro-calc" id="win-calc" data-app="Calculator" hidden>
+      <header class="ps-window__titlebar">
+        <button class="ps-winbtn" type="button" data-close="calc" aria-label="Close calculator"><svg class="ps-icon"><use href="#i-close"/></svg></button>
+        <span class="ps-window__title">Calculator</span>
+      </header>
+      <div class="ps-window__body ro-calc__body">
+        <div class="ro-toolbar">
+          <span id="calcModeSeat"></span>
+          <span class="ps-toolbar__gap"></span>
+          <span class="ps-meta" id="calcAngleReadout" hidden>DEG</span>
+        </div>
+        <div class="ro-calc__display" id="calcDisplay">0</div>
+        <div class="ro-calc__scikeys" id="calcSciKeys" hidden></div>
+        <div class="ro-calc__keys" id="calcKeys"></div>
+      </div>
+    </section>
+  </div>
+
+  <div class="ro-dockwrap">
+    <nav class="ps-dock ro-dock" aria-label="Applications">
+      <button class="ps-dock__item" data-open="browser"><span class="ps-dock__glyph"><svg class="ps-icon ps-icon--24"><use href="#i-globe"/></svg></span> Navigator</button>
+      <button class="ps-dock__item" data-open="manual"><span class="ps-dock__glyph"><svg class="ps-icon ps-icon--24"><use href="#i-doc"/></svg></span> PDF</button>
+      <button class="ps-dock__item" data-open="notes"><span class="ps-dock__glyph"><svg class="ps-icon ps-icon--24"><use href="#i-pencil"/></svg></span> Notes</button>
+      <button class="ps-dock__item" data-open="todo"><span class="ps-dock__glyph"><svg class="ps-icon ps-icon--24"><use href="#i-list"/></svg></span> Todo</button>
+      <button class="ps-dock__item" data-open="pomodoro"><span class="ps-dock__glyph"><svg class="ps-icon ps-icon--24"><use href="#i-clock"/></svg></span> Pomodoro</button>
+      <button class="ps-dock__item" data-open="calc"><span class="ps-dock__glyph"><svg class="ps-icon ps-icon--24"><use href="#i-plus"/></svg></span> Calc</button>
+      <button class="ps-dock__item" data-open="player"><span class="ps-dock__glyph"><svg class="ps-icon ps-icon--24"><use href="#i-disc"/></svg></span> Media</button>
+      <button class="ps-dock__item" data-open="settings"><span class="ps-dock__glyph"><svg class="ps-icon ps-icon--24"><use href="#i-gear"/></svg></span> Settings</button>
+    </nav>
+  </div>
+
+  <div class="ro-toasts" id="toasts" aria-live="polite"></div>
+</div>
+
+<div class="ro-boot" id="bootScreen">
+  <div class="ro-boot__panel">
+    <div class="ro-boot__head">
+      <span>RetOS ROM 2.3</span>
+      <span id="bootStatus">Starting workstation</span>
+    </div>
+    <div>
+      <div class="ro-boot__title">RETOS WORKSTATION</div>
+      <div class="ro-boot__subtitle">Mounting library routes, desk notes, media deck, and local storage.</div>
+    </div>
+    <div class="ro-boot__bar"><span class="ro-boot__fill" id="bootFill"></span></div>
+    <div class="ro-boot__log" id="bootLog" aria-live="polite"></div>
+    <div class="ro-boot__actions">
+      <span class="ps-meta">This is a cosmetic splash. Skip it if you just want the desktop.</span>
+      <button class="ps-btn ps-btn--face" id="bootSkip">Skip boot</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const boot = document.getElementById("bootScreen");
+  const bootFill = document.getElementById("bootFill");
+  const bootLog = document.getElementById("bootLog");
+  const bootStatus = document.getElementById("bootStatus");
+  const bootSkip = document.getElementById("bootSkip");
+  if (!boot || !bootFill || !bootLog || !bootStatus || !bootSkip) { return; }
+
+  const steps = [
+    "Boot ROM checksum passed.",
+    "Mounting saved desktop preferences.",
+    "Rehydrating library routes and pinned tabs.",
+    "Syncing notes, tasks, and focus timers.",
+    "Spinning up the media deck and local playlist.",
+    "Handing control to the desktop shell.",
+  ];
+
+  function logLine(message) {
+    const line = document.createElement("div");
+    const stamp = document.createElement("span");
+    const copy = document.createElement("span");
+    stamp.className = "ro-boot__stamp";
+    stamp.textContent = new Date().toLocaleTimeString(undefined, {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+    copy.textContent = message;
+    line.append(stamp, copy);
+    bootLog.appendChild(line);
+    bootLog.scrollTop = bootLog.scrollHeight;
+  }
+
+  const controller = {
+    started: false,
+    finished: false,
+    index: 0,
+    timer: 0,
+    watchdog: 0,
+    startedAt: 0,
+    start() {
+      if (this.started || this.finished) { return; }
+      this.started = true;
+      this.startedAt = Date.now();
+      const tick = () => {
+        if (this.finished) { return; }
+        const message = steps[Math.min(this.index, steps.length - 1)];
+        logLine(message);
+        bootStatus.textContent = message;
+        bootFill.style.width = Math.min(88, Math.round(((this.index + 1) / steps.length) * 88)) + "%";
+        this.index += 1;
+        if (this.index < steps.length) {
+          this.timer = window.setTimeout(tick, 170);
+          return;
+        }
+        bootStatus.textContent = "Waiting for desktop.";
+        this.watchdog = window.setTimeout(() => {
+          if (this.finished) { return; }
+          logLine("Startup stalled. Serve this over http://localhost and inspect the console.");
+          bootStatus.textContent = "Startup stalled";
+        }, 2600);
+      };
+      this.timer = window.setTimeout(tick, 90);
+    },
+    complete(message, immediate) {
+      if (this.finished) { return; }
+      this.finished = true;
+      window.clearTimeout(this.timer);
+      window.clearTimeout(this.watchdog);
+      if (message) { logLine(message); }
+      bootStatus.textContent = "Desktop ready.";
+      bootFill.style.width = "100%";
+      if (immediate) { boot.hidden = true; return; }
+      window.setTimeout(() => { boot.hidden = true; }, 260);
+    },
+    fail(message) {
+      if (this.finished) { return; }
+      window.clearTimeout(this.timer);
+      window.clearTimeout(this.watchdog);
+      logLine(message);
+      bootStatus.textContent = "Startup blocked";
+    }
+  };
+
+  window.__retosBoot = controller;
+  bootSkip.addEventListener("click", () => controller.complete("Boot skipped by operator.", true));
+
+  if (window.location.protocol === "file:") {
+    logLine("RetOS cannot boot from file:// because the page imports ES modules.");
+    logLine("Run a local server in the project root, then open http://localhost:8000/retos/06-retos.html.");
+    bootStatus.textContent = "HTTP server required";
+    bootFill.style.width = "100%";
+    return;
+  }
+
+  controller.start();
+})();
+</script>
+
+<script type="module" src="./06-retos.js"></script>
+</body>
+</html>
