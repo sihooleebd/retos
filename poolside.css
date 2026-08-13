@@ -352,6 +352,7 @@
 .ps-btn--face   { background: var(--ps-face); }
 .ps-btn--accent { background: var(--ps-accent); }
 .ps-btn--plain  { background: var(--ps-paper); }
+.ps-btn[hidden] { display: none; }   /* inline-flex above would defeat the attribute */
 
 .ps-btn[aria-pressed="true"] {
   background: var(--ps-face-lo);
@@ -765,6 +766,24 @@
 .ps-readout__title { flex: 1 1 auto; }
 .ps-readout__body  { padding-top: 8px; color: var(--ps-panel-dim); }
 .ps-readout dt, .ps-readout dd { display: inline; margin: 0; }
+
+/* Seven-segment display; font-size sets the digit height */
+.ps-seg7 {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.1em;
+  padding: 0.22em 0.3em;
+  border: var(--ps-hair);
+  border-radius: var(--ps-radius);
+  background: var(--ps-panel);
+  font-size: 28px;
+  line-height: 0;
+}
+
+.ps-seg7__cell { height: 1em; width: 0.556em; display: block; }
+.ps-seg7__cell--dots { width: 0.222em; }
+.ps-seg7__cell [data-lit="true"]  { fill: var(--ps-panel-ink); }
+.ps-seg7__cell [data-lit="false"] { fill: var(--ps-panel-dim); opacity: 0.16; }
 
 .ps-media { border: var(--ps-hair); background: var(--ps-ink); }
 
@@ -1633,11 +1652,17 @@
   border-right: var(--ps-hair);
   border-bottom: var(--ps-hair);
   background: none;
+  color: var(--ps-ink);   /* buttons never inherit; UA black sinks into dark papers */
   font-family: var(--ps-font-mono);
   font-size: var(--ps-px-4);
   cursor: pointer;
 }
-.ps-calendar__day:nth-child(7n) { border-right: 0; }
+.ps-calendar__blank {
+  border-right: var(--ps-hair);
+  border-bottom: var(--ps-hair);
+}
+.ps-calendar__day:nth-child(7n),
+.ps-calendar__blank:nth-child(7n) { border-right: 0; }
 .ps-calendar__day[data-on="true"] { background-image: radial-gradient(var(--ps-ink) 0.5px, transparent 0.6px); background-size: 4px 4px; }
 .ps-calendar__day[aria-current="date"] { background: var(--ps-ink); color: var(--ps-paper); }
 

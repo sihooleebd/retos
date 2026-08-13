@@ -66,7 +66,8 @@ export function Waveform(opts) {
 
 /**
  * A .ps-calendar month. Marked days get the dot fill, current is inverted.
- * @example Calendar({ days: 31, marked: [2, 4, 9], current: 10 })
+ * offset pads leading blank cells so day 1 lands on its true weekday.
+ * @example Calendar({ days: 31, offset: 4, marked: [2, 4, 9], current: 10 })
  */
 export function Calendar(opts) {
   opts = opts || {};
@@ -74,7 +75,11 @@ export function Calendar(opts) {
   var days = opts.days == null ? 31 : opts.days;
   var marked = opts.marked || [2, 4, 5, 9, 11, 12, 16, 18, 19, 23, 25, 26, 30];
   var current = opts.current == null ? 10 : opts.current;
+  var offset = opts.offset == null ? 0 : opts.offset;
   var grid = [];
+  for (var b = 0; b < offset; b++) {
+    grid.push(el("span", { class: "ps-calendar__blank" }));
+  }
   for (var d = 1; d <= days; d++) {
     grid.push(el("button", {
       class: "ps-calendar__day",

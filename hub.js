@@ -80,7 +80,7 @@ export { Stat, Meter, Timeline, Avatar, AvatarStack, Code, CodeBlock } from "./a
 export { Chart, Waveform, Calendar, Rating, Specs, Counter, Badge88, Ticker, Quote } from "./assets/data.js";
 
 // media.js, cassettes, discs, vinyl, consoles, readouts
-export { Cassette, Disc, Vinyl, Console, Readout } from "./assets/media.js";
+export { Cassette, Disc, Vinyl, Console, Readout, Seg7 } from "./assets/media.js";
 
 /* Library version. */
 export const version = "2.3.0";

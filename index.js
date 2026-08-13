@@ -1,9 +1,11 @@
-import { el, icon, Segment, SideTabs, VuMeter, Toast } from "./hub.js";
+import { el, icon, Segment, SideTabs, VuMeter, Toast, Seg7, Calendar } from "./hub.js";
 
 const STORAGE_KEYS = {
   settings: "retos-workstation-settings",
   notes: "retos-workstation-notes",
   todos: "retos-workstation-todos",
+  events: "retos-workstation-events",
+  recentPdfs: "retos-workstation-recent-pdfs",
 };
 const DEFAULT_BROWSER_ROUTE = "retos://start";
 const PDF_VIEW_HASH = "#toolbar=0&navpanes=0&view=FitH";
@@ -16,6 +18,7 @@ const APP_INFO = [
   { key: "notes", label: "Notes", desc: "Multi-file pad: markdown and live TeX preview, folder import.", icon: "pencil" },
   { key: "pomodoro", label: "Pomodoro", desc: "Focus timer with quick task loading.", icon: "clock" },
   { key: "todo", label: "Todo", desc: "Task list with filters and persistence.", icon: "list" },
+  { key: "calendar", label: "Calendar", desc: "The month at a glance, today always marked.", icon: "calendar" },
   { key: "calc", label: "Calculator", desc: "Desk calculator with a full scientific mode.", icon: "plus" },
 ];
 
@@ -181,6 +184,7 @@ const defaultSettings = {
     notes: true,
     pomodoro: true,
     todo: true,
+    calendar: false,
     calc: false,
   },
 };
@@ -249,15 +253,32 @@ function applyTheme(id) {
   const label = themeName(id);
   themeLabel.textContent = "Theme: " + label;
   document.getElementById("settingsThemeName").textContent = label;
+  syncSettingsReadouts();
   document.querySelectorAll(".ro-themechip").forEach((btn) => {
     btn.setAttribute("aria-pressed", String(btn.dataset.theme === id || (!btn.dataset.theme && !id)));
   });
   browserTabFrames.forEach((frame) => syncEmbeddedFrameTheme(frame));
-  syncEmbeddedFrameTheme(manualFrame);
+  manualTabFrames.forEach((frame) => syncEmbeddedFrameTheme(frame));
   persistSettings();
   refreshBrowserInternal();
   // theme swaps can nudge text metrics; refit so nothing overflows by a hair
   if (typeof fitVisibleAutoWindows === "function") { fitVisibleAutoWindows(); }
+}
+
+function syncSettingsReadouts() {
+  const mini = document.getElementById("settingsPreview");
+  if (mini) {
+    mini.dataset.tint = settings.tint;
+    mini.dataset.wall = settings.wall;
+    mini.dataset.scan = String(!!settings.scanlines);
+  }
+  const summary = document.getElementById("settingsSummary");
+  if (summary) {
+    const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+    summary.textContent = themeName(settings.theme) + " · " + cap(settings.tint) +
+      " · " + cap(settings.wall) + (settings.scanlines ? " · Scanlines" : "") +
+      (settings.wallpaper ? " · Custom wallpaper" : "");
+  }
 }
 
 function applyDesktopOptions() {
@@ -265,6 +286,7 @@ function applyDesktopOptions() {
   desktop.dataset.wall = settings.wall;
   desktop.dataset.scanlines = settings.scanlines ? "on" : "off";
   desktop.dataset.shadows = settings.shadows ? "on" : "off";
+  syncSettingsReadouts();
   if (settings.wallpaper) {
     desktop.style.setProperty("--ro-wallpaper", "url(" + settings.wallpaper + ")");
     desktop.dataset.customWall = "true";
@@ -368,6 +390,7 @@ const windowMap = {
   notes: document.getElementById("win-notes"),
   pomodoro: document.getElementById("win-pomodoro"),
   todo: document.getElementById("win-todo"),
+  calendar: document.getElementById("win-calendar"),
   calc: document.getElementById("win-calc"),
 };
 
@@ -381,13 +404,14 @@ const defaultLayout = {
   manual: { left: 360, top: 90, width: 702, height: 560 },
   notes: { left: 140, top: 372, width: 416, height: 392 },
   todo: { left: 580, top: 336, width: 320, height: 420 },
-  pomodoro: { left: 1244, top: 330, width: 246, height: 364 },
-  calc: { left: 1180, top: 320, width: 218, height: 406 },
+  pomodoro: { left: 1244, top: 330, width: 246, height: 396 },
+  calendar: { left: 930, top: 360, width: 300, height: 332 },
+  calc: { left: 1180, top: 250, width: 232, height: 548 },
 };
 
 /* first entry ends up on top of the stack */
-const DEFAULT_STACK = ["notes", "todo", "pomodoro", "calc", "manual", "settings", "player", "browser"];
-const AUTO_FIT_KEYS = new Set(["player", "settings", "notes", "calc", "pomodoro"]);
+const DEFAULT_STACK = ["notes", "todo", "pomodoro", "calendar", "calc", "manual", "settings", "player", "browser"];
+const AUTO_FIT_KEYS = new Set(["player", "settings", "notes", "calc", "pomodoro", "calendar"]);
 const fitQueue = new Set();
 const WINDOW_Z_BASE = 200;
 const WINDOW_Z_LIMIT = 90000;
@@ -2751,6 +2775,7 @@ function setActiveNote(index) {
   syncNotesModeSeg();
   renderNotesList();
   renderNotesPreview();
+  syncNotesCounts();
   persistNotes();
 }
 
@@ -2868,16 +2893,25 @@ notesTitle.addEventListener("input", () => {
   renderNotesList();
   persistNotes();
 });
+function syncNotesCounts() {
+  const text = notesPad.value;
+  const words = (text.match(/\S+/g) || []).length;
+  document.getElementById("notesWords").textContent = words + (words === 1 ? " word" : " words");
+  document.getElementById("notesChars").textContent = text.length + (text.length === 1 ? " char" : " chars");
+}
+
 notesPad.addEventListener("input", () => {
   activeNote().body = notesPad.value;
   persistNotes();
   scheduleNotesPreview();
+  syncNotesCounts();
 });
 document.getElementById("notesClear").addEventListener("click", () => {
   activeNote().body = "";
   notesPad.value = "";
   persistNotes();
   renderNotesPreview();
+  syncNotesCounts();
   showToast("Cleared " + activeNote().name + ".", "trash");
 });
 document.getElementById("notesExport").addEventListener("click", () => {
@@ -2950,7 +2984,7 @@ function renderTodos() {
       }, todo.done ? icon("check", 12) : ""),
       el("span", { class: "ro-todo__text" }, todo.text),
       el("button", {
-        class: "ps-winbtn",
+        class: "ro-todo__del",
         type: "button",
         "aria-label": "Remove task",
         onclick: () => {
@@ -2958,12 +2992,23 @@ function renderTodos() {
           persistTodos();
           renderTodos();
         },
-      }, icon("close")));
+      }, icon("close", 12)));
     list.appendChild(row);
   });
+  if (!filtered.length) {
+    list.appendChild(el("div", { class: "ps-empty" },
+      el("span", { class: "ps-empty__glyph" }, icon(todoFilter === "Done" ? "check" : "list", 48)),
+      todoFilter === "Done"
+        ? "Nothing ticked off yet. Check a box when it ships."
+        : "The ledger is clear. Add the first task above."));
+  }
   const open = todos.filter((todo) => !todo.done).length;
+  const done = todos.length - open;
   document.getElementById("todoCount").textContent = open + (open === 1 ? " open task" : " open tasks");
   document.getElementById("mbTasks").textContent = open + (open === 1 ? " task" : " tasks");
+  document.getElementById("todoMeterFill").style.width =
+    todos.length ? Math.round((done / todos.length) * 100) + "%" : "0%";
+  document.getElementById("todoMeterText").textContent = done + "/" + todos.length;
 }
 
 document.getElementById("todoForm").addEventListener("submit", (e) => {
@@ -2985,6 +3030,146 @@ document.getElementById("todoClearDone").addEventListener("click", () => {
 
 renderTodos();
 
+/* Calendar: the month at a glance. The library grid gets the true
+   weekday offset (Monday first) and today's ring; dotted days carry
+   events, the panel below edits the selected day, and the statusbar
+   keeps the real date and ISO week on hand wherever you wander. */
+let calCursor = new Date();
+let calSelected = new Date();
+
+function calKey(date) {
+  return date.getFullYear() + "-" +
+    String(date.getMonth() + 1).padStart(2, "0") + "-" +
+    String(date.getDate()).padStart(2, "0");
+}
+
+let calEvents = safeLoad(STORAGE_KEYS.events, null);
+if (!calEvents || typeof calEvents !== "object") {
+  // first boot: two demo entries so the dots have something to say
+  calEvents = {};
+  const soon = new Date();
+  soon.setDate(soon.getDate() + 2);
+  calEvents[calKey(new Date())] = ["Look around the redesigned desk"];
+  calEvents[calKey(soon)] = ["Flip the tape to side B"];
+}
+
+function persistCalEvents() {
+  localStorage.setItem(STORAGE_KEYS.events, JSON.stringify(calEvents));
+}
+
+function calDayEvents(date) {
+  return calEvents[calKey(date)] || [];
+}
+
+function isoWeek(date) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7) + 3);
+  const firstThursday = new Date(Date.UTC(d.getUTCFullYear(), 0, 4));
+  firstThursday.setUTCDate(firstThursday.getUTCDate() - ((firstThursday.getUTCDay() + 6) % 7) + 3);
+  return 1 + Math.round((d - firstThursday) / 604800000);
+}
+
+function renderCalDay() {
+  const list = document.getElementById("calEventList");
+  list.innerHTML = "";
+  const events = calDayEvents(calSelected);
+  document.getElementById("calDayLabel").textContent =
+    calSelected.toLocaleDateString(undefined, { weekday: "long", day: "2-digit", month: "long" });
+  if (!events.length) {
+    list.appendChild(el("div", { class: "ro-cal__empty" }, "Nothing scheduled. The day is yours."));
+    return;
+  }
+  events.forEach((entry, index) => {
+    list.appendChild(el("div", { class: "ro-cal__event" },
+      el("span", {}, entry),
+      el("button", {
+        class: "ro-cal__del",
+        type: "button",
+        "aria-label": "Remove event",
+        onclick: () => {
+          events.splice(index, 1);
+          if (!events.length) { delete calEvents[calKey(calSelected)]; }
+          persistCalEvents();
+          renderCalendar();
+        },
+      }, icon("close", 12))));
+  });
+}
+
+function renderCalendar() {
+  const now = new Date();
+  const year = calCursor.getFullYear();
+  const month = calCursor.getMonth();
+  const days = new Date(year, month + 1, 0).getDate();
+  const sameMonth = year === now.getFullYear() && month === now.getMonth();
+  const marked = [];
+  let monthCount = 0;
+  for (let d = 1; d <= days; d += 1) {
+    const dayEvents = calDayEvents(new Date(year, month, d));
+    if (dayEvents.length) {
+      marked.push(d);
+      monthCount += dayEvents.length;
+    }
+  }
+  const seat = document.getElementById("calSeat");
+  seat.innerHTML = "";
+  seat.appendChild(Calendar({
+    days,
+    offset: (new Date(year, month, 1).getDay() + 6) % 7,
+    marked,
+    current: sameMonth ? now.getDate() : 0,
+  }));
+  if (calSelected.getFullYear() === year && calSelected.getMonth() === month) {
+    const cell = seat.querySelectorAll(".ps-calendar__day")[calSelected.getDate() - 1];
+    if (cell) { cell.dataset.selected = "true"; }
+  }
+  document.getElementById("calMonth").textContent =
+    calCursor.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+  document.getElementById("calReadout").textContent =
+    now.toLocaleDateString(undefined, { weekday: "short", day: "2-digit", month: "short" }) +
+    " · week " + isoWeek(now);
+  document.getElementById("calMonthEvents").textContent =
+    monthCount + (monthCount === 1 ? " event" : " events");
+  document.getElementById("calToday").hidden = sameMonth;
+  renderCalDay();
+  scheduleFitWindow("calendar");
+}
+
+document.getElementById("calSeat").addEventListener("click", (e) => {
+  const day = e.target.closest(".ps-calendar__day");
+  if (!day) { return; }
+  calSelected = new Date(calCursor.getFullYear(), calCursor.getMonth(), Number(day.textContent));
+  renderCalendar();
+});
+
+document.getElementById("calEventForm").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const input = document.getElementById("calEventInput");
+  const entry = input.value.trim();
+  if (!entry) { return; }
+  const key = calKey(calSelected);
+  calEvents[key] = calEvents[key] || [];
+  calEvents[key].push(entry);
+  input.value = "";
+  persistCalEvents();
+  renderCalendar();
+});
+
+document.getElementById("calPrev").addEventListener("click", () => {
+  calCursor = new Date(calCursor.getFullYear(), calCursor.getMonth() - 1, 1);
+  renderCalendar();
+});
+document.getElementById("calNext").addEventListener("click", () => {
+  calCursor = new Date(calCursor.getFullYear(), calCursor.getMonth() + 1, 1);
+  renderCalendar();
+});
+document.getElementById("calToday").addEventListener("click", () => {
+  calCursor = new Date();
+  calSelected = new Date();
+  renderCalendar();
+});
+renderCalendar();
+
 const pomoModes = {
   "Focus 25": { label: "Focus block", seconds: 25 * 60 },
   "Break 5": { label: "Short break", seconds: 5 * 60 },
@@ -3000,6 +3185,8 @@ let pomoSessions = 0;
 
 const pomoSeg = Segment({ options: Object.keys(pomoModes), value: currentPomoMode });
 document.getElementById("pomoModes").appendChild(pomoSeg);
+const pomoTimeSeg = Seg7({ value: "25:00" });
+document.getElementById("pomoTime").replaceChildren(pomoTimeSeg);
 pomoSeg.addEventListener("change", (e) => {
   currentPomoMode = e.detail.value;
   resetPomodoro();
@@ -3071,7 +3258,7 @@ function fmtClock(seconds) {
 function syncPomodoro() {
   const config = pomoModes[currentPomoMode];
   document.getElementById("pomoLabel").textContent = config.label;
-  document.getElementById("pomoTime").textContent = fmtClock(pomoRemaining);
+  pomoTimeSeg.set(fmtClock(pomoRemaining));
   drawPomoWedge(pomoRemaining);
   document.getElementById("pomoLamp").setAttribute("data-on", String(pomoRunning));
   document.getElementById("pomoSessions").textContent = String(pomoSessions);
@@ -3151,8 +3338,35 @@ const calcSciKeys = [
   "x²", "1/x", "%", "Ans", "DEG",
 ];
 
+const calcSeg = Seg7({ value: "0" });
+document.getElementById("calcSegSeat").appendChild(calcSeg);
+
+function calcSegFormat(n) {
+  let s = String(Number(n.toPrecision(10)));
+  if (s.replace(/[-.]/g, "").length > 10) { s = n.toExponential(4); }
+  return s.replace("+", "");
+}
+
 function renderCalc() {
   document.getElementById("calcDisplay").textContent = calcExpr || "0";
+  if (calcExpr === "ERR") { calcSeg.set("err"); return; }
+  // the panel runs the tally live, adding-machine style
+  const preview = calcEvaluate(calcExpr);
+  calcSeg.set(Number.isFinite(preview) ? calcSegFormat(preview) : "-");
+}
+
+function calcTapeAdd(expr, result) {
+  const tape = document.getElementById("calcTape");
+  tape.appendChild(el("div", { class: "ro-calc__tapeline" },
+    el("span", {}, expr + " ="),
+    el("strong", {}, result)));
+  while (tape.children.length > 60) { tape.removeChild(tape.firstChild); }
+  tape.scrollTop = tape.scrollHeight;
+}
+
+function syncCalcAns() {
+  document.getElementById("calcAnsReadout").textContent =
+    "ans " + String(Number(calcAns.toPrecision(12)));
 }
 
 function calcFactorial(n) {
@@ -3203,10 +3417,14 @@ function calcInput(key) {
   } else if (key === "=") {
     const result = calcEvaluate(calcExpr);
     if (Number.isFinite(result)) {
-      calcAns = result;
       // 12 significant digits, without trailing float noise
-      calcExpr = String(Number(result.toPrecision(12)));
+      const rounded = String(Number(result.toPrecision(12)));
+      if (calcExpr !== rounded) { calcTapeAdd(calcExpr, rounded); }
+      calcAns = result;
+      calcExpr = rounded;
+      syncCalcAns();
     } else {
+      calcTapeAdd(calcExpr, "ERR");
       calcExpr = "ERR";
     }
   } else if (key === "x²") {
@@ -3224,7 +3442,8 @@ function calcInput(key) {
 
 const calcKeySeat = document.getElementById("calcKeys");
 calcKeys.forEach((key) => {
-  const variant = /^[/*\-+=]$/.test(key) ? "accent" : "face";
+  // one accent on the bench: the = key; operators get the face tint
+  const variant = key === "=" ? "accent" : /^[/*\-+]$/.test(key) ? "face" : "plain";
   calcKeySeat.appendChild(el("button", {
     class: "ps-btn ps-btn--" + variant,
     type: "button",
@@ -3258,6 +3477,7 @@ calcModeSeg.addEventListener("change", (e) => {
   const win = windowMap.calc;
   calcSciSeat.hidden = !sci;
   document.getElementById("calcAngleReadout").hidden = !sci;
+  document.getElementById("calcAngleRule").hidden = !sci;
   win.dataset.calcmode = sci ? "sci" : "basic";
   if (sci) {
     // remember the basic frame; leaving sci mode restores it exactly
@@ -3292,7 +3512,6 @@ document.addEventListener("keydown", (e) => {
 const browserAddress = document.getElementById("browserAddress");
 const browserFiles = document.getElementById("browserFiles");
 const browserOpenFile = document.getElementById("browserOpenFile");
-const manualFrame = document.getElementById("manualFrame");
 const manualFiles = document.getElementById("manualFiles");
 const manualOpenFull = document.getElementById("manualOpenFull");
 const browserFrameSeat = document.getElementById("browserFrameSeat");
@@ -3302,11 +3521,22 @@ const browserStatus = document.getElementById("browserStatus");
 const browserRouteReadout = document.getElementById("browserRouteReadout");
 const manualDrop = document.getElementById("manualDrop");
 const manualStatus = document.getElementById("manualStatus");
-let manualRoute = "";
-let manualFrameRoute = "";
-let manualUploadUrl = "";
+const manualFrameSeat = document.getElementById("manualFrameSeat");
+const manualTabsSeat = document.getElementById("manualTabsSeat");
 
-installEmbeddedFrameFocusProxy(manualFrame);
+/* PDF viewer state: tabs over keep-alive frames (same discipline as the
+   navigator — switching never reloads, so every document keeps its page),
+   plus the recents shelf. Path-backed PDFs reopen from their route;
+   uploads reopen from the IndexedDB pdfs store. */
+let manualTabId = 1;
+let manualTabs = [];
+let manualActive = 0;
+const manualTabFrames = new Map();
+let recentPdfs = safeLoad(STORAGE_KEYS.recentPdfs, []);
+
+function persistRecentPdfs() {
+  localStorage.setItem(STORAGE_KEYS.recentPdfs, JSON.stringify(recentPdfs));
+}
 
 if (window.ResizeObserver) {
   const fitObserver = new ResizeObserver((entries) => {
@@ -3365,6 +3595,7 @@ const browserInternalPages = {
       appCard("Notes", "Autosaving desktop scratchpad", "notes"),
       appCard("Todo", "Persistent task list", "todo"),
       appCard("Pomodoro", "Focus timer tied to next task", "pomodoro"),
+      appCard("Calendar", "The month at a glance", "calendar"),
       appCard("Calculator", "Keyboard-ready desk calculator", "calc"),
       '</div>',
       '<div class="section"><h2>Quick actions</h2><div class="grid">',
@@ -3405,11 +3636,11 @@ const browserInternalPages = {
     '<div class="hero">',
     '<div class="eyebrow">PDF viewer</div>',
     '<h1>RetOS handbook.</h1>',
-    '<p>The same PDF can live in the dedicated viewer or in this library tab. Both use the local file in <code>pdf/</code>.</p>',
+    '<p>PDFs are the viewer&#8217;s territory now &mdash; any PDF you open lands on its platen, in its own tab, and the shelf remembers your recent documents.</p>',
     '</div>',
     '<div class="grid">',
     '<button class="card" data-open="manual"><strong>Open the PDF Viewer window</strong><div class="meta">Jump straight into the embedded manual.</div></button>',
-    '<a class="card" data-url="./pdf/retos-handbook.pdf"><strong>Open handbook in this tab</strong><div class="meta">Treat the library as a PDF shelf too.</div></a>',
+    '<a class="card" data-url="./pdf/retos-handbook.pdf"><strong>Open the handbook</strong><div class="meta">Sends it straight to the viewer&#8217;s platen.</div></a>',
     '<a class="card" data-url="retos://storage"><strong>See saved workstation data</strong><div class="meta">Inspect what RetOS is storing locally.</div></a>',
     '</div>',
   ])),
@@ -3649,6 +3880,7 @@ function ensureBrowserTabFrame(id) {
     browserStatus.textContent = isExternalRoute(route)
       ? "Loaded " + labelFromRoute(route) + ". Blank page? That site refuses embedding — pop it out."
       : "Loaded " + labelFromRoute(route) + ".";
+    document.getElementById("browserLed").dataset.state = "on";
   });
   browserFrameSeat.appendChild(frame);
   return frame;
@@ -3736,6 +3968,8 @@ function renderBrowserRoute(route) {
     hostile ? "That site refuses to be embedded." :
     isExternalRoute(route) ? "Dialling the live web…" :
     "Ready.";
+  document.getElementById("browserLed").dataset.state =
+    hostile ? "off" : isExternalRoute(route) ? "blink" : "on";
   if (route.startsWith("retos://")) {
     showBrowserTabFrame(null);
     browserRouteView.hidden = false;
@@ -3761,6 +3995,15 @@ function browserGo(raw, push = true) {
   if (route.startsWith("app://")) {
     showWindow(route.slice(6));
     browserStatus.textContent = "Opened app window.";
+    return;
+  }
+  // PDFs are the viewer's territory; the navigator hands them straight over
+  if (isPdfRoute(route)) {
+    const base = route.replace(/#.*$/, "");
+    const name = decodeURIComponent(base.split("/").pop() || "") || labelFromRoute(base);
+    showWindow("manual");
+    openManualRoute(base, name);
+    browserStatus.textContent = "Sent " + name + " to the PDF Viewer.";
     return;
   }
   const tab = currentBrowserTab();
@@ -3813,25 +4056,162 @@ function openBrowserFile(file) {
     showToast("That file type does not preview well here.", "caution");
     return;
   }
+  if (kind === "pdf") {
+    showWindow("manual");
+    openManualFile(file);
+    return;
+  }
   const url = rememberObjectUrl(file, kind);
-  browserGo(kind === "pdf" ? url + PDF_VIEW_HASH : url, true);
-  showToast(file.name + " opened in the library.", kind === "pdf" ? "doc" : "folder-open");
+  browserGo(url, true);
+  showToast(file.name + " opened in the library.", "folder-open");
 }
 
-function applyManualRoute(baseRoute, label) {
-  manualRoute = baseRoute;
-  manualFrameRoute = baseRoute + PDF_VIEW_HASH;
-  if (manualFrame.getAttribute("src") !== manualFrameRoute) {
-    manualFrame.src = manualFrameRoute;
+function fmtBytes(bytes) {
+  if (!bytes) { return ""; }
+  if (bytes < 1024 * 1024) { return Math.max(1, Math.round(bytes / 1024)) + " KB"; }
+  return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+}
+
+function fmtAgo(when) {
+  const mins = Math.round((Date.now() - when) / 60000);
+  if (mins < 1) { return "just now"; }
+  if (mins < 60) { return mins + " min ago"; }
+  if (mins < 60 * 24) { return Math.round(mins / 60) + " h ago"; }
+  return Math.round(mins / (60 * 24)) + " d ago";
+}
+
+function rememberRecentPdf(entry) {
+  const key = (r) => r.base ? "b:" + r.base : "u:" + r.name + ":" + (r.size || 0);
+  recentPdfs = recentPdfs.filter((r) => key(r) !== key(entry));
+  recentPdfs.unshift(entry);
+  recentPdfs = recentPdfs.slice(0, 8);
+  persistRecentPdfs();
+}
+
+function activeManualTab() {
+  return manualTabs.find((tab) => tab.id === manualActive) || null;
+}
+
+function ensureManualFrame(tab) {
+  let frame = manualTabFrames.get(tab.id);
+  if (frame) { return frame; }
+  frame = el("iframe", { title: tab.name, data: { live: "false" } });
+  frame.src = tab.url + PDF_VIEW_HASH;
+  manualTabFrames.set(tab.id, frame);
+  installEmbeddedFrameFocusProxy(frame);
+  manualFrameSeat.appendChild(frame);
+  return frame;
+}
+
+function renderManualTabs() {
+  manualTabsSeat.innerHTML = "";
+  manualTabs.forEach((tab) => {
+    const wrap = el("div", { class: "ro-browsertab", data: { active: String(tab.id === manualActive) } },
+      el("button", {
+        class: "ro-browsertab__main",
+        type: "button",
+        onclick: () => {
+          manualActive = tab.id;
+          renderManual();
+        },
+      }, icon("doc", 12),
+      el("span", { class: "ro-browsertab__label" }, tab.name)),
+      el("button", {
+        class: "ro-browsertab__close",
+        type: "button",
+        "aria-label": "Close " + tab.name,
+        onclick: (e) => {
+          e.stopPropagation();
+          closeManualTab(tab.id);
+        },
+      }, icon("close", 12)));
+    manualTabsSeat.appendChild(wrap);
+  });
+}
+
+function closeManualTab(id) {
+  const index = manualTabs.findIndex((tab) => tab.id === id);
+  if (index === -1) { return; }
+  const tab = manualTabs[index];
+  const frame = manualTabFrames.get(id);
+  if (frame) { frame.remove(); manualTabFrames.delete(id); }
+  manualTabs.splice(index, 1);
+  if (tab.url.startsWith("blob:") && !manualTabs.some((t) => t.url === tab.url)) {
+    URL.revokeObjectURL(tab.url);
+    objectUrls.delete(tab.url);
+    objectUrlMeta.delete(tab.url);
   }
-  manualFrame.hidden = false;
-  document.getElementById("manualEmpty").hidden = true;
-  manualOpenFull.hidden = false;
-  manualOpenFull.href = baseRoute;
-  manualOpenFull.setAttribute("aria-label", "Open " + label + " full size");
-  if (manualStatus) {
-    manualStatus.textContent = label + " loaded.";
+  if (manualActive === id) {
+    manualActive = manualTabs.length ? manualTabs[Math.max(0, index - 1)].id : 0;
   }
+  renderManual();
+}
+
+function renderManualRecents() {
+  const shelf = document.getElementById("manualRecents");
+  const list = document.getElementById("manualRecentsList");
+  shelf.hidden = !recentPdfs.length;
+  list.innerHTML = "";
+  recentPdfs.forEach((entry) => {
+    const meta = [fmtAgo(entry.when), fmtBytes(entry.size),
+      entry.base ? "from " + entry.base : "upload"].filter(Boolean).join(" · ");
+    list.appendChild(el("div", { class: "ro-manual__recent" },
+      el("button", {
+        class: "ro-manual__recentopen",
+        type: "button",
+        onclick: () => reopenRecentPdf(entry),
+      }, el("strong", {}, entry.name), el("span", {}, meta)),
+      el("button", {
+        class: "ro-cal__del",
+        type: "button",
+        "aria-label": "Forget " + entry.name,
+        onclick: () => {
+          recentPdfs = recentPdfs.filter((r) => r !== entry);
+          if (entry.storeId != null) { unstorePdfBlob(entry.storeId); }
+          persistRecentPdfs();
+          renderManualRecents();
+        },
+      }, icon("close", 12))));
+  });
+}
+
+function renderManual() {
+  renderManualTabs();
+  const tab = activeManualTab();
+  document.getElementById("manualEmpty").hidden = !!tab;
+  document.getElementById("manualLed").dataset.state = tab ? "on" : "off";
+  manualOpenFull.hidden = !tab;
+  manualTabFrames.forEach((frame) => { frame.dataset.live = "false"; });
+  if (tab) {
+    const frame = ensureManualFrame(tab);
+    frame.dataset.live = "true";
+    manualOpenFull.href = tab.url;
+    manualOpenFull.setAttribute("aria-label", "Open " + tab.name + " full size");
+    manualStatus.textContent = tab.name + (tab.size ? " · " + fmtBytes(tab.size) : "") + " on the platen.";
+  } else {
+    manualStatus.textContent = recentPdfs.length
+      ? "Nothing on the platen. The shelf remembers " + recentPdfs.length + "."
+      : "Nothing loaded.";
+    renderManualRecents();
+  }
+  scheduleFitWindow("manual");
+}
+
+function openManualTab(url, name, recent) {
+  const existing = manualTabs.find((tab) => tab.url === url);
+  if (existing) {
+    manualActive = existing.id;
+  } else {
+    const tab = { id: manualTabId++, url, name, size: recent ? recent.size : 0 };
+    manualTabs.push(tab);
+    manualActive = tab.id;
+  }
+  if (recent) { rememberRecentPdf(recent); }
+  renderManual();
+}
+
+function openManualRoute(base, name) {
+  openManualTab(base, name, { name, base, storeId: null, size: 0, when: Date.now() });
 }
 
 function openManualFile(file) {
@@ -3841,14 +4221,37 @@ function openManualFile(file) {
     showToast("Only PDF files belong in the viewer.", "caution");
     return;
   }
-  if (manualUploadUrl) {
-    URL.revokeObjectURL(manualUploadUrl);
-    objectUrls.delete(manualUploadUrl);
-    objectUrlMeta.delete(manualUploadUrl);
-  }
-  manualUploadUrl = rememberObjectUrl(file, "pdf");
-  applyManualRoute(manualUploadUrl, file.name);
+  const url = rememberObjectUrl(file, "pdf");
+  const entry = { name: file.name, base: null, storeId: null, size: file.size, when: Date.now() };
+  storePdfBlob(entry, file);   // uploads survive reboots via the pdfs store
+  openManualTab(url, file.name, entry);
   showToast(file.name + " loaded into the viewer.", "doc");
+}
+
+function reopenRecentPdf(entry) {
+  entry.when = Date.now();
+  if (entry.base) {
+    openManualTab(entry.base, entry.name, entry);
+    return;
+  }
+  if (entry.storeId == null) {
+    recentPdfs = recentPdfs.filter((r) => r !== entry);
+    persistRecentPdfs();
+    renderManualRecents();
+    showToast("That upload did not survive the reboot.", "caution");
+    return;
+  }
+  loadPdfBlob(entry.storeId).then((blob) => {
+    if (!blob) {
+      recentPdfs = recentPdfs.filter((r) => r !== entry);
+      persistRecentPdfs();
+      renderManualRecents();
+      showToast("That upload did not survive the reboot.", "caution");
+      return;
+    }
+    const url = rememberObjectUrl(new File([blob], entry.name, { type: "application/pdf" }), "pdf");
+    openManualTab(url, entry.name, entry);
+  });
 }
 
 document.getElementById("browserGo").addEventListener("click", () => {
@@ -3950,21 +4353,14 @@ manualFiles.addEventListener("change", () => {
 });
 
 document.getElementById("manualReload").addEventListener("click", () => {
-  if (!manualFrameRoute) {
+  const tab = activeManualTab();
+  const frame = tab && manualTabFrames.get(tab.id);
+  if (!frame) {
     showToast("Nothing to reload — load a PDF first.", "caution");
     return;
   }
-  manualFrame.src = manualFrameRoute;
-  showToast("PDF viewer reloaded.", "doc");
-});
-
-document.getElementById("manualInBrowser").addEventListener("click", () => {
-  if (!manualRoute) {
-    showToast("Load a PDF first.", "caution");
-    return;
-  }
-  showWindow("browser");
-  browserGo(manualRoute, true);
+  frame.src = frame.getAttribute("src");
+  showToast("Reloaded " + tab.name + ".", "doc");
 });
 
 ["dragenter", "dragover"].forEach((type) => {
@@ -3984,6 +4380,7 @@ windowMap.manual.addEventListener("drop", (e) => {
     openManualFile(e.dataTransfer.files[0]);
   }
 });
+renderManual();
 
 const playerFiles = document.getElementById("playerFiles");
 const playerUpload = document.getElementById("playerUpload");
@@ -4135,19 +4532,56 @@ function buildDemoTracks() {
 let tracks = buildDemoTracks();
 let playerIndex = 0;
 
-/* Your own tracks persist in IndexedDB (audio blobs are far too big for
-   localStorage). Demo tracks are synthesized fresh on every boot instead. */
+/* Your own tracks and PDFs persist in IndexedDB (blobs are far too big
+   for localStorage; the recents list there only keeps names and paths).
+   Demo tracks are synthesized fresh on every boot instead. */
 let trackDB = null;
 function openTrackDB() {
   return new Promise((resolve) => {
     if (trackDB) { resolve(trackDB); return; }
     let req;
-    try { req = indexedDB.open("retos-workstation", 1); } catch (err) { resolve(null); return; }
+    try { req = indexedDB.open("retos-workstation", 2); } catch (err) { resolve(null); return; }
     req.onupgradeneeded = () => {
-      req.result.createObjectStore("tracks", { keyPath: "id", autoIncrement: true });
+      const db = req.result;
+      if (!db.objectStoreNames.contains("tracks")) {
+        db.createObjectStore("tracks", { keyPath: "id", autoIncrement: true });
+      }
+      if (!db.objectStoreNames.contains("pdfs")) {
+        db.createObjectStore("pdfs", { keyPath: "id", autoIncrement: true });
+      }
     };
     req.onsuccess = () => { trackDB = req.result; resolve(trackDB); };
     req.onerror = () => resolve(null);
+  });
+}
+
+function storePdfBlob(entry, blob) {
+  openTrackDB().then((db) => {
+    if (!db || !db.objectStoreNames.contains("pdfs")) { return; }
+    const req = db.transaction("pdfs", "readwrite").objectStore("pdfs")
+      .put({ name: entry.name, blob });
+    req.onsuccess = () => {
+      entry.storeId = req.result;
+      persistRecentPdfs();
+    };
+  });
+}
+
+function loadPdfBlob(id) {
+  return openTrackDB().then((db) => new Promise((resolve) => {
+    if (!db || !db.objectStoreNames.contains("pdfs")) { resolve(null); return; }
+    const req = db.transaction("pdfs", "readonly").objectStore("pdfs").get(id);
+    req.onsuccess = () => resolve(req.result ? req.result.blob : null);
+    req.onerror = () => resolve(null);
+  }));
+}
+
+function unstorePdfBlob(id) {
+  if (id == null) { return; }
+  openTrackDB().then((db) => {
+    if (db && db.objectStoreNames.contains("pdfs")) {
+      db.transaction("pdfs", "readwrite").objectStore("pdfs").delete(id);
+    }
   });
 }
 
@@ -4229,8 +4663,21 @@ function paintWaveProgress(ratio) {
   playerWave.setAttribute("aria-valuenow", String(Math.round(clamp(ratio, 0, 1) * 100)));
 }
 
+function syncDeckStatus() {
+  const total = tracks.reduce((sum, t) => sum + (t.duration || 0), 0);
+  const demos = tracks.filter((t) => t.demo).length;
+  document.getElementById("deckTrackCount").textContent =
+    tracks.length + (tracks.length === 1 ? " track" : " tracks");
+  document.getElementById("deckRuntime").textContent =
+    fmtClock(Math.round(total)) + " on the disk";
+  document.getElementById("deckSource").textContent = !tracks.length ? "shelf empty"
+    : demos === tracks.length ? "demo disk"
+    : demos ? "mixed shelf" : "local files";
+}
+
 function renderPlaylist() {
   playerPlaylist.innerHTML = "";
+  syncDeckStatus();
   if (!tracks.length) {
     playerPlaylist.appendChild(
       el("div", { class: "ps-meta", style: { padding: "10px 12px" } },

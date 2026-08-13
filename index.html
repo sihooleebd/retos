@@ -370,6 +370,7 @@ button.ps-menubar__item {
 .ro-notes__body,
 .ro-pomodoro__body,
 .ro-todo__body,
+.ro-cal__body,
 .ro-calc__body {
   display: grid;
   gap: 10px;
@@ -391,6 +392,7 @@ button.ps-menubar__item {
 .ro-notes__body,
 .ro-pomodoro__body,
 .ro-todo__body,
+.ro-cal__body,
 .ro-calc__body {
   width: 100%;
   box-sizing: border-box;
@@ -536,23 +538,17 @@ button.ps-menubar__item {
 .ro-browser__frame iframe[data-live="false"] {
   visibility: hidden;
 }
-.ro-browser__status {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 7px 10px;
-  border: var(--ps-hair);
-  background: var(--ps-paper);
-  font-family: var(--ps-font-mono);
-  font-size: var(--ps-px-2);
-}
 .ro-browser__route {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--ps-gray-400);
+  font-family: var(--ps-font-mono);
+  font-size: var(--ps-px-3);
+  text-transform: none;
+  letter-spacing: 0;
+  padding-right: 10px;
 }
 
 .ro-settings__layout {
@@ -660,23 +656,108 @@ button.ps-menubar__item {
   width: 100%;
   min-width: 0;
 }
-.ro-previewcard {
-  padding: 12px;
+/* the desk in miniature: paints itself from the live theme tokens, so
+   every chip click previews here before it lands anywhere else */
+.ro-mini { margin: 0; display: grid; gap: 8px; }
+.ro-mini__desk {
+  position: relative;
+  height: 128px;
   border: var(--ps-hair);
-  background: var(--ps-panel);
-  color: var(--ps-panel-ink);
+  overflow: hidden;
+  background: linear-gradient(180deg, #dce8ef 0%, #c2d6df 34%, #6e91a4 100%);
+}
+.ro-mini[data-tint="sunrise"] .ro-mini__desk { background: linear-gradient(180deg, #f1dcc9 0%, #e1c3a4 34%, #8d6854 100%); }
+.ro-mini[data-tint="mono"] .ro-mini__desk { background: linear-gradient(180deg, #d9d9d2 0%, #b7b7b0 34%, #70706b 100%); }
+.ro-mini[data-tint="phosphor"] .ro-mini__desk { background: linear-gradient(180deg, #163023 0%, #0d2218 34%, #04100a 100%); }
+.ro-mini[data-tint="amber"] .ro-mini__desk { background: linear-gradient(180deg, #3f290b 0%, #281906 34%, #120b03 100%); }
+.ro-mini__desk::before {
+  content: "";
+  position: absolute;
+  inset: 12px 0 0;
+  pointer-events: none;
+  opacity: 0.3;
+}
+.ro-mini[data-wall="grid"] .ro-mini__desk::before {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.4) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.4) 1px, transparent 1px);
+  background-size: 14px 14px;
+}
+.ro-mini[data-wall="dots"] .ro-mini__desk::before {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.55) 1px, transparent 1.2px);
+  background-size: 9px 9px;
+}
+.ro-mini[data-wall="wave"] .ro-mini__desk::before {
+  background-image:
+    radial-gradient(circle at 0 100%, rgba(255, 255, 255, 0.3), transparent 40%),
+    radial-gradient(circle at 100% 0, rgba(255, 255, 255, 0.28), transparent 44%);
+}
+.ro-mini[data-scan="true"] .ro-mini__desk::after {
+  content: "";
+  position: absolute;
+  inset: 12px 0 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.055) 0 1px, transparent 1px 4px);
+}
+.ro-mini__bar {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 5px;
+  background: var(--ps-paper);
+  border-bottom: var(--ps-hair);
+}
+.ro-mini__bar i { width: 14px; height: 4px; background: var(--ps-ink); opacity: 0.75; }
+.ro-mini__bar i + i { width: 8px; opacity: 0.3; }
+.ro-mini__win {
+  position: absolute;
+  left: 13%;
+  top: 26%;
+  width: 46%;
+  height: 48%;
+  background: var(--ps-paper);
+  border: var(--ps-hair);
   box-shadow: var(--ps-shadow-sm);
 }
-.ro-previewcard__title {
+.ro-mini__win--back {
+  left: 44%;
+  top: 20%;
+  width: 36%;
+  height: 38%;
+  box-shadow: none;
+}
+.ro-mini__title {
+  height: 9px;
+  border-bottom: var(--ps-hair);
+  background: repeating-linear-gradient(to bottom, var(--ps-ink) 0 1px, transparent 1px 3px);
+  background-clip: content-box;
+  padding: 2px 3px;
+  box-sizing: border-box;
+}
+.ro-mini__win > i { display: block; margin: 5px 6px 0; height: 4px; background: var(--ps-gray-200); }
+.ro-mini__win > i + i { width: 55%; background: var(--ps-face); }
+.ro-mini__dock {
+  position: absolute;
+  left: 50%;
+  bottom: 6px;
+  transform: translateX(-50%);
+  display: flex;
+  border: var(--ps-hair);
+  background: var(--ps-paper);
+  box-shadow: var(--ps-shadow-sm);
+}
+.ro-mini__dock i { width: 16px; height: 12px; border-right: var(--ps-hair); }
+.ro-mini__dock i:last-child { border-right: 0; }
+.ro-mini__dock i:nth-child(2) { box-shadow: inset 0 2px 0 var(--ps-accent); }
+.ro-mini__caption {
   font-family: var(--ps-font-bar);
-  font-size: var(--ps-px-2);
+  font-size: var(--ps-px-1);
   letter-spacing: 1px;
   text-transform: uppercase;
-}
-.ro-previewcard__value {
-  margin-top: 6px;
-  font-family: var(--ps-font-display);
-  font-size: 24px;
+  color: var(--ps-gray-400);
 }
 .ro-startup {
   display: grid;
@@ -704,18 +785,27 @@ button.ps-menubar__item {
 }
 
 .ro-manual__frame {
+  position: relative;
   flex: 1 1 auto;
   min-height: 200px;
   border: var(--ps-hair);
   background: var(--ps-paper);
 }
+/* one live iframe per tab; parked documents keep their page (visibility,
+   not display — same keep-alive trick as the navigator) */
 .ro-manual__frame iframe {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   border: 0;
   display: block;
 }
-.ro-manual__frame iframe[hidden] { display: none; }
+.ro-manual__frame iframe[data-live="false"] {
+  visibility: hidden;
+}
+.ro-manual__tabs { flex: 0 0 auto; flex-wrap: wrap; }
+.ro-manual__tabs:empty { display: none; }
 .ro-manual__empty {
   display: grid;
   place-items: center;
@@ -726,18 +816,75 @@ button.ps-menubar__item {
   line-height: 1.7;
 }
 .ro-manual__empty[hidden] { display: none; }
-.ro-manual__drop {
-  padding: 10px 12px;
+.ro-manual__emptyinner { display: grid; gap: 18px; justify-items: center; }
+.ro-manual__recents {
+  display: grid;
+  gap: 0;
+  width: min(430px, 82%);
   border: var(--ps-hair);
-  background: var(--ps-face-hi);
+  background: var(--ps-paper);
+  text-align: left;
+}
+.ro-manual__recentshead {
+  padding: 5px 10px;
+  border-bottom: var(--ps-hair);
+  background: var(--ps-chrome);
+  font-family: var(--ps-font-bar);
+  font-size: var(--ps-px-1);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--ps-gray-400);
+}
+.ro-manual__recent {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--ps-gray-100);
+}
+.ro-manual__recent:last-child { border-bottom: 0; }
+.ro-manual__recentopen {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+  padding: 7px 10px;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  color: var(--ps-ink);
+  font-family: var(--ps-font-ui);
+  font-size: var(--ps-px-3);
+}
+.ro-manual__recentopen:hover { background: var(--ps-gray-100); }
+.ro-manual__recentopen strong {
+  font-weight: 400;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ro-manual__recentopen span {
+  color: var(--ps-gray-400);
+  font-family: var(--ps-font-mono);
+  font-size: var(--ps-px-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* the drop ribbon only surfaces while a file hovers over the window */
+.ro-manual__drop {
+  display: none;
+  position: absolute;
+  inset: auto 0 0 0;
+  padding: 8px 12px;
+  border-top: var(--ps-hair);
+  background: var(--ps-accent);
+  color: var(--ps-ink);
+  font-family: var(--ps-font-ui);
   font-size: var(--ps-px-2);
   text-align: center;
 }
 .ro-manual__drop[data-drop="true"] {
-  background: var(--ps-accent-lo);
-}
-.ro-manual__status {
-  font-family: var(--ps-font-mono);
+  display: block;
 }
 [data-ps-theme="night"] .ro-shell,
 [data-ps-theme="dark"] .ro-shell,
@@ -1045,8 +1192,9 @@ button.ps-menubar__item {
 .ro-pomo__hubtime {
   font-family: var(--ps-font-mono);
   font-size: 27px;
-  line-height: 1;
+  line-height: 0;
 }
+.ro-pomo__hubtime .ps-seg7 { font-size: 19px; }
 .ro-pomo__actions {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1068,32 +1216,36 @@ button.ps-menubar__item {
   grid-template-rows: auto auto auto auto;
   align-content: start;
 }
+/* the ledger: ruled rows on one sheet, margin rule down the page */
 .ro-todo__list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
   height: 232px;
   overflow: auto;
   min-height: 0;
   box-sizing: border-box;
+  border: var(--ps-hair);
+  background-color: var(--ps-paper);
+  background-image: linear-gradient(var(--ps-gray-200), var(--ps-gray-200));
+  background-repeat: no-repeat;
+  background-size: 1px 100%;
+  background-position: 37px 0;
 }
 .ro-todo__item {
   display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 8px;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
   align-items: center;
-  padding: 8px 10px;
-  border: var(--ps-hair);
-  background: var(--ps-paper);
+  border-bottom: 1px solid var(--ps-gray-100);
   flex: 0 0 auto;
 }
 .ro-todo__item[data-done="true"] .ro-todo__text {
-  color: var(--ps-gray-400);
+  color: var(--ps-gray-300);
   text-decoration: line-through;
 }
 .ro-todo__toggle {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
+  margin: 0 auto;
   border: var(--ps-hair);
   background: var(--ps-paper);
   display: grid;
@@ -1110,20 +1262,85 @@ button.ps-menubar__item {
 .ro-todo__text {
   min-width: 0;
   word-break: break-word;
+  padding: 9px 10px;
+}
+.ro-todo__del,
+.ro-cal__del {
+  border: 0;
+  background: none;
+  padding: 9px 10px;
+  cursor: pointer;
+  color: var(--ps-gray-300);
+  line-height: 0;
+}
+.ro-todo__del:hover,
+.ro-cal__del:hover { color: var(--ps-ink); }
+.ro-todo__list .ps-empty { padding: 40px 18px; }
+.ro-todo__gauge { display: inline-flex; align-items: center; gap: 7px; }
+.ro-todo__gaugetrack {
+  width: 74px;
+  height: 8px;
+  border: var(--ps-hair);
+  background: var(--ps-paper);
+  display: inline-block;
+}
+.ro-todo__gaugetrack span {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--ps-ink);
 }
 
 .ro-calc__display {
-  min-height: 74px;
+  display: grid;
+  gap: 6px;
   padding: 10px 12px;
   border: var(--ps-hair);
   background: var(--ps-panel);
   color: var(--ps-panel-ink);
+  box-shadow: var(--ps-shadow-sm);
+}
+.ro-calc__expr {
+  min-height: 18px;
   font-family: var(--ps-font-mono);
-  font-size: 32px;
+  font-size: var(--ps-px-4);
   line-height: 1.1;
   text-align: right;
-  box-shadow: var(--ps-shadow-sm);
+  color: var(--ps-panel-dim);
   overflow-wrap: anywhere;
+}
+.ro-calc__seg { display: flex; justify-content: flex-end; overflow: hidden; }
+.ro-calc__seg .ps-seg7 { border: 0; padding: 0; background: none; font-size: 26px; }
+/* the adding-machine tape: newest line at the bottom, ruled like a roll */
+.ro-calc__tape {
+  height: 88px;
+  overflow-y: auto;
+  padding: 5px 12px;
+  border: var(--ps-hair);
+  background-color: var(--ps-paper);
+  background-image: repeating-linear-gradient(to bottom, transparent 0 21px, var(--ps-gray-100) 21px 22px);
+  background-attachment: local;
+  font-family: var(--ps-font-mono);
+  font-size: var(--ps-px-3);
+  line-height: 22px;
+}
+.ro-calc__tape:empty::before {
+  content: "The tape remembers every =";
+  color: var(--ps-gray-300);
+}
+.ro-calc__tapeline {
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+.ro-calc__tapeline span {
+  color: var(--ps-gray-400);
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.ro-calc__tapeline strong {
+  font-weight: 400;
+  white-space: nowrap;
 }
 .ro-calc__keys {
   display: grid;
@@ -1449,6 +1666,123 @@ button.ps-menubar__item {
   box-sizing: border-box;
 }
 
+/* --------------------------------------------------------------------------
+   INSTRUMENT GRAMMAR — every window ends in a statusbar of live readouts,
+   and wears a model plate in the titlebar; the fleet reads as one bench.
+   -------------------------------------------------------------------------- */
+.ro-plate {
+  align-self: center;
+  padding: 2px 7px 1px;
+  border: var(--ps-hair);
+  border-radius: var(--ps-radius);
+  background: var(--ps-chrome);
+  font-family: var(--ps-font-bar);
+  font-size: var(--ps-px-1);
+  letter-spacing: 1px;
+  white-space: nowrap;
+}
+.ps-window--utility .ro-plate {
+  background: var(--ps-paper);
+  padding-inline: 6px;
+}
+/* statusbars sit outside the body, as .ps-window direct children — the
+   body can scroll or clip without ever swallowing the truth row, and the
+   auto-fit measures them as window chrome for free */
+.ro-statusbar {
+  flex: 0 0 auto;
+  min-width: 0;
+  overflow: hidden;
+}
+.ro-statusbar .ps-toolbar__gap { flex: 1 1 auto; }
+.ro-statusbar .ps-led { flex: 0 0 auto; }
+.ro-status__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+button.ro-statusbtn {
+  height: 100%;
+  padding: 0 12px;
+  border: 0;
+  border-left: var(--ps-hair);
+  background: none;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+button.ro-statusbtn:hover { background: var(--ps-gray-100); }
+
+/* settings gains a bottom truth-row, so the body stacks */
+.ro-settings__body { flex-direction: column; }
+.ro-settings__layout { flex: 1 1 auto; min-height: 0; }
+
+/* the calendar: nav strip over the month grid */
+.ro-cal__body { align-content: start; }
+.ro-cal__nav {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+.ro-cal__month {
+  text-align: center;
+  font-family: var(--ps-font-display);
+  font-size: var(--ps-px-4);
+}
+.ro-cal__seat .ps-calendar { width: 100%; }
+/* the selected day wears an accent inset; today keeps its ink fill */
+.ro-cal__seat .ps-calendar__day[data-selected="true"] {
+  box-shadow: inset 0 0 0 2px var(--ps-accent-lo);
+}
+.ro-cal__daylabel {
+  font-family: var(--ps-font-bar);
+  font-size: var(--ps-px-1);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--ps-gray-400);
+}
+.ro-cal__day { display: grid; gap: 7px; }
+.ro-cal__events { display: grid; }
+.ro-cal__event {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--ps-gray-100);
+  font-family: var(--ps-font-ui);
+  font-size: var(--ps-px-3);
+}
+.ro-cal__event span { flex: 1 1 auto; min-width: 0; word-break: break-word; }
+.ro-cal__empty {
+  padding: 5px 0;
+  color: var(--ps-gray-300);
+  font-family: var(--ps-font-ui);
+  font-size: var(--ps-px-2);
+}
+.ro-cal__add {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+/* the notes pad is ruled paper with a margin rule; lines scroll with text */
+.ro-notes__pad {
+  line-height: 22px;
+  background-color: var(--ps-paper);
+  background-image:
+    linear-gradient(var(--ps-gray-200), var(--ps-gray-200)),
+    repeating-linear-gradient(to bottom, transparent 0 21px, var(--ps-gray-100) 21px 22px);
+  background-size: 1px 100%, 100% 100%;
+  background-position: 30px 0, 0 5px;
+  background-repeat: no-repeat, repeat;
+  background-attachment: local, local;
+  padding-left: 42px;
+}
+
 @media (max-width: 1180px) {
   body { overflow: auto; }
   .ro-shell { overflow: visible; }
@@ -1598,16 +1932,21 @@ button.ps-menubar__item {
         <span class="ps-deskicon__glyph"><svg class="ps-icon ps-icon--24"><use href="#i-plus"/></svg></span>
         <span class="ps-deskicon__label">Calc</span>
       </button>
+      <button class="ps-deskicon" data-open="calendar">
+        <span class="ps-deskicon__glyph"><svg class="ps-icon ps-icon--24"><use href="#i-calendar"/></svg></span>
+        <span class="ps-deskicon__label">Calendar</span>
+      </button>
     </div>
 
     <section class="ps-window ps-window--floating ro-browser" id="win-browser" data-app="Navigator">
       <header class="ps-window__titlebar">
         <button class="ps-winbtn" type="button" data-close="browser" aria-label="Close navigator"><svg class="ps-icon"><use href="#i-close"/></svg></button>
         <button class="ps-winbtn" type="button" data-zoom="browser" aria-label="Zoom navigator"><svg class="ps-icon"><use href="#i-zoom"/></svg></button>
+        <span class="ro-plate">NAV&#8211;3</span>
         <span class="ps-window__title">Navigator</span>
       </header>
       <div class="ps-window__body ro-browser__body">
-        <input type="file" id="browserFiles" accept=".html,.htm,.pdf,text/html,application/pdf,text/plain,image/*" hidden>
+        <input type="file" id="browserFiles" accept=".html,.htm,.pdf,text/html,application/pdf,text/plain,image/*" hidden><!-- PDFs picked here hand off to the viewer -->
         <div class="ro-browser__tabsbar">
           <div class="ro-browser__tabs" id="browserTabs"></div>
           <button class="ps-btn ps-btn--face ps-btn--icon" id="browserNewTab" aria-label="New tab"><svg class="ps-icon"><use href="#i-plus"/></svg></button>
@@ -1633,10 +1972,13 @@ button.ps-menubar__item {
           <div class="ro-browser__routeview" id="browserRouteView" hidden></div>
           <!-- tab frames are seated here, one live iframe per tab -->
         </div>
-        <div class="ro-browser__status">
-          <span id="browserStatus">Ready to open local pages and files.</span>
-          <span class="ro-browser__route" id="browserRouteReadout">retos://start</span>
-        </div>
+      </div>
+      <div class="ps-statusbar ro-statusbar">
+        <span class="ps-led" id="browserLed" data-state="on">Line</span>
+        <span class="ps-statusbar__divider"></span>
+        <span class="ro-status__text" id="browserStatus">Ready to open local pages and files.</span>
+        <span class="ps-toolbar__gap"></span>
+        <span class="ro-browser__route" id="browserRouteReadout">retos://start</span>
       </div>
     </section>
 
@@ -1694,11 +2036,19 @@ button.ps-menubar__item {
           <div class="ps-listbox ro-player__playlist" id="playerPlaylist" role="listbox" aria-label="Playlist"></div>
         </div>
       </div>
+      <div class="ps-statusbar ro-statusbar">
+        <span id="deckTrackCount">0 tracks</span>
+        <span class="ps-statusbar__divider"></span>
+        <span id="deckRuntime">00:00 on the disk</span>
+        <span class="ps-toolbar__gap"></span>
+        <span id="deckSource">demo disk</span>
+      </div>
     </section>
 
     <section class="ps-window ps-window--utility ps-window--floating ro-settings" id="win-settings" data-app="Settings" hidden>
       <header class="ps-window__titlebar">
         <button class="ps-winbtn" type="button" data-close="settings" aria-label="Close settings"><svg class="ps-icon"><use href="#i-close"/></svg></button>
+        <span class="ro-plate">ST&#8211;0</span>
         <span class="ps-window__title">Settings</span>
       </header>
       <div class="ps-window__body ro-settings__body">
@@ -1710,11 +2060,18 @@ button.ps-menubar__item {
                 <h2 class="ps-legend">Appearance</h2>
                 <p class="ro-settings__lead">Change the full system palette in one hit. Theme selection is part of the workstation, not bolted on.</p>
               </div>
+              <figure class="ro-mini" id="settingsPreview" data-tint="lagoon" data-wall="grid" data-scan="true">
+                <div class="ro-mini__desk" aria-hidden="true">
+                  <div class="ro-mini__bar"><i></i><i></i></div>
+                  <div class="ro-mini__win ro-mini__win--back"></div>
+                  <div class="ro-mini__win"><div class="ro-mini__title"></div><i></i><i></i></div>
+                  <div class="ro-mini__dock"><i></i><i></i><i></i><i></i></div>
+                </div>
+                <figcaption class="ro-mini__caption">
+                  <span id="settingsThemeName">Paper</span> &middot; the desk, in miniature
+                </figcaption>
+              </figure>
               <div class="ro-settings__themes" id="themeGrid"></div>
-              <div class="ro-previewcard">
-                <div class="ro-previewcard__title">Current Theme</div>
-                <div class="ro-previewcard__value" id="settingsThemeName">Paper</div>
-              </div>
             </section>
 
             <section class="ro-settings__panel" data-settings-panel="desktop" hidden>
@@ -1816,28 +2173,43 @@ button.ps-menubar__item {
           </div>
         </div>
       </div>
+      <div class="ps-statusbar ro-statusbar">
+        <span class="ro-status__text" id="settingsSummary">Paper &middot; Lagoon &middot; Wire grid</span>
+      </div>
     </section>
 
     <section class="ps-window ps-window--floating ro-manual" id="win-manual" data-app="PDF Viewer" hidden>
       <header class="ps-window__titlebar">
         <button class="ps-winbtn" type="button" data-close="manual" aria-label="Close manual"><svg class="ps-icon"><use href="#i-close"/></svg></button>
         <button class="ps-winbtn" type="button" data-zoom="manual" aria-label="Zoom manual"><svg class="ps-icon"><use href="#i-zoom"/></svg></button>
+        <span class="ro-plate">DOC&#8211;2</span>
         <span class="ps-window__title">PDF Viewer</span>
       </header>
       <div class="ps-window__body ro-manual__body">
         <input type="file" id="manualFiles" accept="application/pdf,.pdf" hidden>
+        <div class="ro-browser__tabs ro-manual__tabs" id="manualTabsSeat"></div>
         <div class="ro-toolbar">
           <button class="ps-btn ps-btn--accent" id="manualUpload">Load PDF</button>
           <a class="ps-btn ps-btn--face" id="manualOpenFull" href="#" target="_blank" rel="noopener" hidden>Open full size</a>
-          <button class="ps-btn ps-btn--face" id="manualInBrowser">Open in navigator</button>
           <button class="ps-btn ps-btn--face" id="manualReload">Reload</button>
         </div>
-        <div class="ro-manual__drop" id="manualDrop">Drop a PDF anywhere in this window, or use Load PDF.</div>
-        <div class="ps-meta ro-manual__status" id="manualStatus">Nothing loaded.</div>
-        <div class="ro-manual__frame">
-          <div class="ro-manual__empty" id="manualEmpty">No PDF on the platen.<br>Load one, or drop it here.</div>
-          <iframe id="manualFrame" title="PDF viewer" hidden></iframe>
+        <div class="ro-manual__frame" id="manualFrameSeat">
+          <div class="ro-manual__empty" id="manualEmpty">
+            <div class="ro-manual__emptyinner">
+              <div>No PDF on the platen.<br>Load one, or drop it anywhere in this window.</div>
+              <div class="ro-manual__recents" id="manualRecents" hidden>
+                <div class="ro-manual__recentshead">Recent documents</div>
+                <div id="manualRecentsList"></div>
+              </div>
+            </div>
+          </div>
+          <div class="ro-manual__drop" id="manualDrop">Drop to put it on the platen</div>
         </div>
+      </div>
+      <div class="ps-statusbar ro-statusbar">
+        <span class="ps-led" id="manualLed" data-state="off">Platen</span>
+        <span class="ps-statusbar__divider"></span>
+        <span class="ro-status__text" id="manualStatus">Nothing loaded.</span>
       </div>
     </section>
 
@@ -1845,16 +2217,21 @@ button.ps-menubar__item {
       <header class="ps-window__titlebar">
         <button class="ps-winbtn" type="button" data-close="notes" aria-label="Close notes"><svg class="ps-icon"><use href="#i-close"/></svg></button>
         <button class="ps-winbtn" type="button" data-zoom="notes" aria-label="Zoom notes"><svg class="ps-icon"><use href="#i-zoom"/></svg></button>
+        <span class="ro-plate">NT&#8211;4</span>
         <span class="ps-window__title">Notes</span>
       </header>
       <div class="ps-window__body ro-notes__body">
         <input type="file" id="notesImportFiles" accept=".txt,.md,.markdown,.tex,.sty,.bib,.png,.jpg,.jpeg,.gif,.webp,.svg,text/plain,image/*" multiple hidden>
         <input type="file" id="notesImportFolder" webkitdirectory hidden>
         <div class="ro-toolbar">
-          <button class="ps-btn ps-btn--face" id="notesNew">New</button>
-          <button class="ps-btn ps-btn--face" id="notesNewFolder">New folder</button>
-          <button class="ps-btn ps-btn--face" id="notesImportFilesBtn">Import files</button>
-          <button class="ps-btn ps-btn--face" id="notesImportFolderBtn">Import folder</button>
+          <div class="ps-btngroup">
+            <button class="ps-btn ps-btn--face" id="notesNew">New</button>
+            <button class="ps-btn ps-btn--face" id="notesNewFolder">New folder</button>
+          </div>
+          <div class="ps-btngroup" title="Plain, Markdown, or TeX &mdash; import a whole folder and \input{} resolves against it.">
+            <button class="ps-btn ps-btn--face" id="notesImportFilesBtn">Import files</button>
+            <button class="ps-btn ps-btn--face" id="notesImportFolderBtn">Import folder</button>
+          </div>
           <span id="notesModeSeat"></span>
           <span class="ps-toolbar__gap"></span>
           <button class="ps-btn ps-btn--accent" id="notesPreviewToggle" aria-pressed="false">Preview</button>
@@ -1865,7 +2242,6 @@ button.ps-menubar__item {
           <div class="ro-notes__main">
             <div class="ro-notes__meta">
               <div class="ps-field ro-notes__title"><input class="ps-input" id="notesTitle" aria-label="Document name" placeholder="Document name"></div>
-              <span class="ps-meta" id="notesStatus">Autosaves locally.</span>
               <button class="ps-btn ps-btn--plain" id="notesExport">Export</button>
             </div>
             <div class="ro-notes__editors">
@@ -1874,11 +2250,15 @@ button.ps-menubar__item {
             </div>
           </div>
         </div>
-        <div class="ro-toolbar">
-          <span class="ps-meta" id="notesHint">Plain, Markdown, or TeX — import a whole folder and \input{} resolves against it.</span>
-          <span class="ps-toolbar__gap"></span>
-          <button class="ps-btn ps-btn--face" id="notesClear">Clear</button>
-        </div>
+      </div>
+      <div class="ps-statusbar ro-statusbar">
+        <span id="notesWords">0 words</span>
+        <span class="ps-statusbar__divider"></span>
+        <span id="notesChars">0 chars</span>
+        <span class="ps-statusbar__divider"></span>
+        <span class="ro-status__text" id="notesStatus">Autosaves locally.</span>
+        <span class="ps-toolbar__gap"></span>
+        <button class="ro-statusbtn" id="notesClear" type="button">Clear</button>
       </div>
     </section>
 
@@ -1911,16 +2291,18 @@ button.ps-menubar__item {
           <button class="ps-btn ps-btn--face" id="pomoPause">Pause</button>
           <button class="ps-btn ps-btn--face" id="pomoReset">Reset</button>
         </div>
-        <div class="ro-toolbar">
-          <button class="ps-btn ps-btn--face" id="pomoFromTodo">Load next task</button>
-          <span class="ps-meta" id="pomoStatus">Next block is ready when you are.</span>
-        </div>
+      </div>
+      <div class="ps-statusbar ro-statusbar">
+        <span class="ro-status__text" id="pomoStatus">Ready when you are.</span>
+        <span class="ps-toolbar__gap"></span>
+        <button class="ro-statusbtn" id="pomoFromTodo" type="button">Load next task</button>
       </div>
     </section>
 
     <section class="ps-window ps-window--utility ps-window--floating ro-todo" id="win-todo" data-app="Todo">
       <header class="ps-window__titlebar">
         <button class="ps-winbtn" type="button" data-close="todo" aria-label="Close todo"><svg class="ps-icon"><use href="#i-close"/></svg></button>
+        <span class="ro-plate">TD&#8211;1</span>
         <span class="ps-window__title">Todo</span>
       </header>
       <div class="ps-window__body ro-todo__body">
@@ -1930,27 +2312,73 @@ button.ps-menubar__item {
           <button class="ps-btn ps-btn--accent" type="submit">Add</button>
         </form>
         <div class="ro-todo__list" id="todoList"></div>
-        <div class="ro-toolbar">
-          <button class="ps-btn ps-btn--face" id="todoClearDone">Clear done</button>
-          <span class="ps-meta" id="todoCount">0 open tasks</span>
+      </div>
+      <div class="ps-statusbar ro-statusbar">
+        <span id="todoCount">0 open tasks</span>
+        <span class="ps-statusbar__divider"></span>
+        <span class="ro-todo__gauge" title="Done today, against everything on the ledger">
+          <span class="ro-todo__gaugetrack"><span id="todoMeterFill"></span></span>
+          <span id="todoMeterText">0/0</span>
+        </span>
+        <span class="ps-toolbar__gap"></span>
+        <button class="ro-statusbtn" id="todoClearDone" type="button">Clear done</button>
+      </div>
+    </section>
+
+    <section class="ps-window ps-window--utility ps-window--floating ro-cal" id="win-calendar" data-app="Calendar" hidden>
+      <header class="ps-window__titlebar">
+        <button class="ps-winbtn" type="button" data-close="calendar" aria-label="Close calendar"><svg class="ps-icon"><use href="#i-close"/></svg></button>
+        <span class="ro-plate">CA&#8211;5</span>
+        <span class="ps-window__title">Calendar</span>
+      </header>
+      <div class="ps-window__body ro-cal__body">
+        <div class="ro-cal__nav">
+          <button class="ps-btn ps-btn--face ps-btn--icon" id="calPrev" aria-label="Previous month"><svg class="ps-icon"><use href="#i-prev"/></svg></button>
+          <div class="ro-cal__month" id="calMonth">This month</div>
+          <button class="ps-btn ps-btn--face ps-btn--icon" id="calNext" aria-label="Next month"><svg class="ps-icon"><use href="#i-next"/></svg></button>
         </div>
+        <div class="ro-cal__seat" id="calSeat"></div>
+        <div class="ro-cal__day">
+          <div class="ro-cal__daylabel" id="calDayLabel">Today</div>
+          <div class="ro-cal__events" id="calEventList"></div>
+          <form class="ro-cal__add" id="calEventForm">
+            <div class="ps-field"><input class="ps-input" id="calEventInput" placeholder="Add an event" aria-label="Add an event"></div>
+            <button class="ps-btn ps-btn--accent" type="submit">Add</button>
+          </form>
+        </div>
+      </div>
+      <div class="ps-statusbar ro-statusbar">
+        <span class="ro-status__text" id="calReadout">Today</span>
+        <span class="ps-statusbar__divider"></span>
+        <span id="calMonthEvents">0 events</span>
+        <span class="ps-toolbar__gap"></span>
+        <button class="ro-statusbtn" id="calToday" type="button" hidden>Today</button>
       </div>
     </section>
 
     <section class="ps-window ps-window--utility ps-window--floating ro-calc" id="win-calc" data-app="Calculator" hidden>
       <header class="ps-window__titlebar">
         <button class="ps-winbtn" type="button" data-close="calc" aria-label="Close calculator"><svg class="ps-icon"><use href="#i-close"/></svg></button>
+        <span class="ro-plate">CL&#8211;8</span>
         <span class="ps-window__title">Calculator</span>
       </header>
       <div class="ps-window__body ro-calc__body">
         <div class="ro-toolbar">
           <span id="calcModeSeat"></span>
           <span class="ps-toolbar__gap"></span>
-          <span class="ps-meta" id="calcAngleReadout" hidden>DEG</span>
         </div>
-        <div class="ro-calc__display" id="calcDisplay">0</div>
+        <div class="ro-calc__display">
+          <div class="ro-calc__expr" id="calcDisplay">0</div>
+          <div class="ro-calc__seg" id="calcSegSeat"></div>
+        </div>
+        <div class="ro-calc__tape" id="calcTape" aria-label="Calculation tape" aria-live="polite"></div>
         <div class="ro-calc__scikeys" id="calcSciKeys" hidden></div>
         <div class="ro-calc__keys" id="calcKeys"></div>
+      </div>
+      <div class="ps-statusbar ro-statusbar">
+        <span id="calcAngleReadout" hidden>DEG</span>
+        <span class="ps-statusbar__divider" id="calcAngleRule" hidden></span>
+        <span class="ro-status__text" id="calcAnsReadout">ans 0</span>
       </div>
     </section>
   </div>
@@ -1962,6 +2390,7 @@ button.ps-menubar__item {
       <button class="ps-dock__item" data-open="notes"><span class="ps-dock__glyph"><svg class="ps-icon ps-icon--24"><use href="#i-pencil"/></svg></span> Notes</button>
       <button class="ps-dock__item" data-open="todo"><span class="ps-dock__glyph"><svg class="ps-icon ps-icon--24"><use href="#i-list"/></svg></span> Todo</button>
       <button class="ps-dock__item" data-open="pomodoro"><span class="ps-dock__glyph"><svg class="ps-icon ps-icon--24"><use href="#i-clock"/></svg></span> Pomodoro</button>
+      <button class="ps-dock__item" data-open="calendar"><span class="ps-dock__glyph"><svg class="ps-icon ps-icon--24"><use href="#i-calendar"/></svg></span> Calendar</button>
       <button class="ps-dock__item" data-open="calc"><span class="ps-dock__glyph"><svg class="ps-icon ps-icon--24"><use href="#i-plus"/></svg></span> Calc</button>
       <button class="ps-dock__item" data-open="player"><span class="ps-dock__glyph"><svg class="ps-icon ps-icon--24"><use href="#i-disc"/></svg></span> Media</button>
       <button class="ps-dock__item" data-open="settings"><span class="ps-dock__glyph"><svg class="ps-icon ps-icon--24"><use href="#i-gear"/></svg></span> Settings</button>
